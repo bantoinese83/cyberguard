@@ -120,7 +120,9 @@ if not ABUSEIPDB_API_KEY:
 # Fetch user IP and location
 def get_user_ip_info():
     try:
-        response = requests.get("https://ipinfo.io/json")
+        response = requests.get("http://ip-api.com/json/")
+        print(response.status_code)  # Add this line to check the status code
+        print(response.text)  # Add this line to inspect the response content
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:

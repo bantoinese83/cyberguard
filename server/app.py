@@ -11,7 +11,6 @@ from services import (
     trace_email,
     security_check,
     speed_test,
-    get_user_ip_info,
     phone_number_lookup,
     proxy_check,
     reverse_dns_lookup,
@@ -64,20 +63,44 @@ with st.spinner("Loading app statistics..."):
         )  # Use an empty dictionary if fetching stats fails to prevent displaying an error on every
         # page load
 
+# --- Initialize session state ---
+if 'app_stats' not in st.session_state:
+    st.session_state.app_stats = {}
+
+
+# --- Define function to update app statistics ---
+def update_app_stats():
+    st.session_state.app_stats = app_statistics()
+
+
+# --- Display app statistics in the header ---
 st.title("CyberGuard")
 
-col1, col2, col3, col4, col5, col6 = st.columns(
-    6
-)  # Create columns to display app stats neatly
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-col1.metric("👥 Daily Visitors", app_stats.get("Daily Visitors", "N/A"))
-col2.metric("📅 Monthly Pageviews", app_stats.get("Monthly Pageviews", "N/A"))
-col3.metric("📈 Weekly Pageviews", app_stats.get("Weekly Pageviews", "N/A"))
-col4.metric("⏱️ Average Time On Site", app_stats.get("Average Time On Site", "N/A"))
-col5.metric("🌍 Top Visiting Region", app_stats.get("Top Visiting Region", "N/A"))
-col6.metric("🔗 Crowd Favorite Tool", app_stats.get("Top Tool", "N/A"))
+# Use session state to access updated statistics
+col1.metric("👥 Daily Visitors", st.session_state.app_stats.get("Daily Visitors", "N/A"))
+col2.metric("📅 Monthly Pageviews", st.session_state.app_stats.get("Monthly Pageviews", "N/A"))
+col3.metric("📈 Weekly Pageviews", st.session_state.app_stats.get("Weekly Pageviews", "N/A"))
+col4.metric("⏱️ Average Time On Site", st.session_state.app_stats.get("Average Time On Site", "N/A"))
+col5.metric("🌍 Top Visiting Region", st.session_state.app_stats.get("Top Visiting Region", "N/A"))
+col6.metric("🔗 Crowd Favorite Tool", st.session_state.app_stats.get("Most Used Tool", "N/A"))
 
-user_ip_info = get_user_ip_info()
+
+# --- Fetch user IP and location (using a separate function to avoid Streamlit issues) ---
+def fetch_user_ip_info():
+    try:
+        response = requests.get("http://ip-api.com/json/")
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        return {"error": str(e)}
+
+
+user_ip_info = fetch_user_ip_info()
+
+# Debugging: Print the response to the console
+print(user_ip_info)
 
 # Sidebar navigation
 st.sidebar.title("🔍 Navigation")
@@ -85,9 +108,9 @@ current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 st.sidebar.write(f"**Current Time:** {current_time}")
 
 if "error" not in user_ip_info:
-    if "ip" in user_ip_info:
+    if "query" in user_ip_info:
         st.sidebar.markdown(
-            f"**IPv4:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip']}</span>",
+            f"**IPv4:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['query']}</span>",
             unsafe_allow_html=True)
     if "ip_v6" in user_ip_info:
         st.sidebar.markdown(
@@ -95,12 +118,12 @@ if "error" not in user_ip_info:
             unsafe_allow_html=True)
 
     st.sidebar.write(
-        f"**Location:** {user_ip_info['city']}, {user_ip_info['region']}, {user_ip_info['country']}"
+        f"**Location:** {user_ip_info['city']}, {user_ip_info['regionName']}, {user_ip_info['country']}"
     )
 
     # Display the location on a small map if latitude and longitude are available
-    if "loc" in user_ip_info:
-        lat, lon = map(float, user_ip_info["loc"].split(","))
+    if "lat" in user_ip_info and "lon" in user_ip_info:
+        lat, lon = user_ip_info["lat"], user_ip_info["lon"]
         location_df = pd.DataFrame({"lat": [lat], "lon": [lon]})
         st.sidebar.map(location_df, zoom=10)
 else:
@@ -157,7 +180,6 @@ def display_results(results):
     else:
         st.error("Unsupported results format.")
         return
-
 
 
 # --- Tools ---
