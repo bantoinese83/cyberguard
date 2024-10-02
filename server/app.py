@@ -22,7 +22,8 @@ from services import (
     email_validation,
     website_statistics,
     app_statistics,
-)
+    track_visitor,
+    track_page_view, track_tool_usage, )
 
 # Load breach data
 
@@ -63,6 +64,26 @@ with st.spinner("Loading app statistics..."):
         )  # Use an empty dictionary if fetching stats fails to prevent displaying an error on every
         # page load
 
+
+# --- Fetch user IP and location (using a separate function to avoid Streamlit issues) ---
+def fetch_user_ip_info():
+    try:
+        response = requests.get("http://ip-api.com/json/")
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        return {"error": str(e)}
+
+
+user_ip_info = fetch_user_ip_info()
+if "error" not in user_ip_info:
+    track_visitor(user_ip_info.get('query', 'N/A'), user_ip_info.get('regionName', 'N/A'))
+
+# Call the page view tracking function
+track_page_view()
+
+user_ip_info = fetch_user_ip_info()
+
 # --- Initialize session state ---
 if 'app_stats' not in st.session_state:
     st.session_state.app_stats = {}
@@ -70,7 +91,7 @@ if 'app_stats' not in st.session_state:
 
 # --- Define function to update app statistics ---
 def update_app_stats():
-    st.session_state.app_stats = app_statistics()
+    st.session_state.app_stats = app_statistics(use_cached=False)
 
 
 # --- Display app statistics in the header ---
@@ -86,22 +107,6 @@ col4.metric("⏱️ Average Time On Site", st.session_state.app_stats.get("Avera
 col5.metric("🌍 Top Visiting Region", st.session_state.app_stats.get("Top Visiting Region", "N/A"))
 col6.metric("🔗 Crowd Favorite Tool", st.session_state.app_stats.get("Most Used Tool", "N/A"))
 
-
-# --- Fetch user IP and location (using a separate function to avoid Streamlit issues) ---
-def fetch_user_ip_info():
-    try:
-        response = requests.get("http://ip-api.com/json/")
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        return {"error": str(e)}
-
-
-user_ip_info = fetch_user_ip_info()
-
-# Debugging: Print the response to the console
-print(user_ip_info)
-
 # Sidebar navigation
 st.sidebar.title("🔍 Navigation")
 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -110,7 +115,7 @@ st.sidebar.write(f"**Current Time:** {current_time}")
 if "error" not in user_ip_info:
     if "query" in user_ip_info:
         st.sidebar.markdown(
-            f"**IPv4:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['query']}</span>",
+            f"**IPv4:** <span style='background-color: black; padding: 2px 4px;'>{user_ip_info['query']}</span>",
             unsafe_allow_html=True)
     if "ip_v6" in user_ip_info:
         st.sidebar.markdown(
@@ -240,6 +245,12 @@ if tool == "🌐 IP Lookup":
             else:
                 st.warning("Location data not available for this IP address.")
 
+    # Store tool usage in session state
+    if 'tool_usage' not in st.session_state:
+        st.session_state.tool_usage = {}
+    st.session_state.tool_usage["IP Lookup"] = st.session_state.tool_usage.get("IP Lookup", 0) + 1
+    track_tool_usage("IP Lookup")  # Also track in the database
+
 elif tool == "📧 Email Trace":
     st.subheader("Email Trace ✉️")
     st.write(
@@ -290,6 +301,13 @@ elif tool == "📧 Email Trace":
                 st.write(f"**Date:** {trace['date']}")
                 st.markdown("---")
 
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+            st.session_state.tool_usage["Email Trace"] = st.session_state.tool_usage.get("Email Trace", 0) + 1
+            track_tool_usage("Email Trace")  # Also track in the database
+
+
 elif tool == "🔒 Security Check":
     st.subheader("🔒 Security Check")
     st.write(
@@ -320,6 +338,13 @@ elif tool == "🔒 Security Check":
                 label="Blacklisted",
                 value="Yes" if security_status["blacklisted"] else "No",
             )
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+            st.session_state.tool_usage["Security Check"] = st.session_state.tool_usage.get("Security Check", 0) + 1
+            track_tool_usage("Security Check")  # Also track in the database
+
 
 elif tool == "📶 Internet Speed Test":
     st.subheader("📶 Internet Speed Test")
@@ -379,44 +404,54 @@ elif tool == "📶 Internet Speed Test":
             st.write(f"Client Country: {client_info['country']}")
             st.write(f"Client Location: {client_info['lat']}, {client_info['lon']}")
 
-            # Create a gauge chart for download speed
-            fig = go.Figure(
-                go.Indicator(
-                    mode="gauge+number",
-                    value=speedtest_results["download"] / 1_000_000,
-                    title={"text": "Download Speed (Mbps)"},
-                    gauge={"axis": {"range": [None, 1000]}},
-                )
-            )
-            st.plotly_chart(fig)
+            # Create gauge charts and place them in columns
+            col1, col2, col3 = st.columns(3)
 
-            # Create a gauge chart for upload speed
-            fig = go.Figure(
-                go.Indicator(
-                    mode="gauge+number",
-                    value=speedtest_results["upload"] / 1_000_000,
-                    title={"text": "Upload Speed (Mbps)"},
-                    gauge={"axis": {"range": [None, 1000]}},
+            with col1:
+                fig = go.Figure(
+                    go.Indicator(
+                        mode="gauge+number",
+                        value=speedtest_results["download"] / 1_000_000,
+                        title={"text": "Download Speed (Mbps)"},
+                        gauge={"axis": {"range": [None, 1000]}},
+                    )
                 )
-            )
-            st.plotly_chart(fig)
+                st.plotly_chart(fig)
 
-            # Create a gauge chart for ping
-            fig = go.Figure(
-                go.Indicator(
-                    mode="gauge+number",
-                    value=speedtest_results["ping"],
-                    title={"text": "Ping (ms)"},
-                    gauge={"axis": {"range": [None, 100]}},
+            with col2:
+                fig = go.Figure(
+                    go.Indicator(
+                        mode="gauge+number",
+                        value=speedtest_results["upload"] / 1_000_000,
+                        title={"text": "Upload Speed (Mbps)"},
+                        gauge={"axis": {"range": [None, 1000]}},
+                    )
                 )
-            )
-            st.plotly_chart(fig)
+                st.plotly_chart(fig)
+
+            with col3:
+                fig = go.Figure(
+                    go.Indicator(
+                        mode="gauge+number",
+                        value=speedtest_results["ping"],
+                        title={"text": "Ping (ms)"},
+                        gauge={"axis": {"range": [None, 100]}},
+                    )
+                )
+                st.plotly_chart(fig)
 
             # Display server location on a map
             server_location = pd.DataFrame(
                 {"lat": [float(server_info["lat"])], "lon": [float(server_info["lon"])]}
             )
             st.map(server_location)
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+            st.session_state.tool_usage["Internet Speed Test"] = st.session_state.tool_usage.get("Internet Speed Test",
+                                                                                                 0) + 1
+            track_tool_usage("Internet Speed Test")  # Also track in the database
 
 elif tool == "📞 Phone Number Lookup":
     st.subheader("📞 Phone Number Lookup")
@@ -471,6 +506,13 @@ elif tool == "📞 Phone Number Lookup":
                 except requests.RequestException as e:
                     st.error(f"Error fetching geocoding data: {e}")
 
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+            st.session_state.tool_usage["Phone Number Lookup"] = st.session_state.tool_usage.get("Phone Number Lookup",
+                                                                                                 0) + 1
+            track_tool_usage("Phone Number Lookup")  # Also track in the database
+
 elif tool == "🔍 Host Name to IP":
     st.subheader("🔍 Host Name to IP")
     st.write(
@@ -499,6 +541,13 @@ elif tool == "🔍 Host Name to IP":
                 display_results(host_ip_info)
             except socket.gaierror as e:
                 st.error(f"Error looking up host name: {e}")
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["Host Name to IP"] = st.session_state.tool_usage.get("Host Name to IP", 0) + 1
+            track_tool_usage("Host Name to IP")  # Also track in the database
 
 elif tool == "🛡️ Proxy Check":
     st.subheader("🛡️ Proxy Check")
@@ -533,6 +582,13 @@ elif tool == "🛡️ Proxy Check":
         else:
             display_results(proxy_results)
 
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["Proxy Check"] = st.session_state.tool_usage.get("Proxy Check", 0) + 1
+            track_tool_usage("Proxy Check")  # Also track in the database
+
 elif tool == "🔄 Reverse DNS Lookup":
     st.subheader("🔄 Reverse DNS Lookup")
     st.write(
@@ -560,6 +616,14 @@ elif tool == "🔄 Reverse DNS Lookup":
             st.error(reverse_dns_results["error"])
         else:
             display_results(reverse_dns_results)
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["Reverse DNS Lookup"] = st.session_state.tool_usage.get("Reverse DNS Lookup",
+                                                                                                0) + 1
+            track_tool_usage("Reverse DNS Lookup")  # Also track in the database
 
 elif tool == "✅ Email Validation":
     st.subheader("✅ Email Validation")
@@ -591,6 +655,14 @@ elif tool == "✅ Email Validation":
                 label="Validation Status",
                 value="Valid" if email_validation_result["valid"] else "Invalid",
             )
+            st.write(f"**Message:** {email_validation_result['message']}")
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["Email Validation"] = st.session_state.tool_usage.get("Email Validation", 0) + 1
+            track_tool_usage("Email Validation")  # Also track in the database
 
 elif tool == "🔎 MAC Address Lookup":
     st.subheader("🔎 MAC Address Lookup")
@@ -621,6 +693,15 @@ elif tool == "🔎 MAC Address Lookup":
             st.error(mac_info["error"])
         else:
             display_results(mac_info)
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["MAC Address Lookup"] = st.session_state.tool_usage.get("MAC Address Lookup",
+                                                                                                0) + 1
+            track_tool_usage("MAC Address Lookup")  # Also track in the database
+
 
 
 elif tool == "🔏 SSL Certificate Check":
@@ -654,6 +735,15 @@ elif tool == "🔏 SSL Certificate Check":
         else:
             display_results(ssl_certificate_results)
 
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["SSL Certificate Check"] = st.session_state.tool_usage.get(
+                "SSL Certificate Check", 0) + 1
+            track_tool_usage("SSL Certificate Check")  # Also track in the database
+
+
 elif tool == "🌐 DNS Lookup":
     st.subheader("🌐 DNS Lookup")
     st.write(
@@ -680,6 +770,14 @@ elif tool == "🌐 DNS Lookup":
             st.error(dns_results["error"])
         else:
             display_results(dns_results)
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["DNS Lookup"] = st.session_state.tool_usage.get("DNS Lookup", 0) + 1
+            track_tool_usage("DNS Lookup")  # Also track in the database
+
 
 elif tool == "🔍 WHOIS Lookup":
     st.subheader("🔍 WHOIS Lookup")
@@ -712,6 +810,14 @@ elif tool == "🔍 WHOIS Lookup":
         else:
             display_results(whois_results)
 
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["WHOIS Lookup"] = st.session_state.tool_usage.get("WHOIS Lookup", 0) + 1
+            track_tool_usage("WHOIS Lookup")  # Also track in the database
+
+
 elif tool == "🛡️ Malware URL Check":
     st.subheader("🛡️ Malware URL Check")
     st.write(
@@ -739,6 +845,14 @@ elif tool == "🛡️ Malware URL Check":
             st.error(malware_results["error"])
         else:
             display_results(malware_results)
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["Malware URL Check"] = st.session_state.tool_usage.get("Malware URL Check",
+                                                                                               0) + 1
+            track_tool_usage("Malware URL Check")  # Also track in the database
 
 
 elif tool == "📊 Website Statistics":
@@ -773,6 +887,14 @@ elif tool == "📊 Website Statistics":
             st.error(website_stats["error"])
         else:
             display_results(website_stats)
+
+            # Store tool usage in session state
+            if 'tool_usage' not in st.session_state:
+                st.session_state.tool_usage = {}
+
+            st.session_state.tool_usage["Website Statistics"] = st.session_state.tool_usage.get("Website Statistics",
+                                                                                                0) + 1
+            track_tool_usage("Website Statistics")
 
 # Footer
 st.sidebar.markdown("---")

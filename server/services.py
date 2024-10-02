@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 from phonenumbers import geocoder, carrier
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.table import Table
 from sqlalchemy import Integer, String, create_engine, func, cast, Date, JSON
 from sqlalchemy.orm import declarative_base, sessionmaker, mapped_column
 
@@ -75,7 +74,6 @@ class AppStatistics(Base):
     daily_visitors = mapped_column(Integer)
     monthly_pageviews = mapped_column(Integer)
     weekly_pageviews = mapped_column(Integer)
-    total_sites_linking = mapped_column(Integer)
     average_time_on_site = mapped_column(String)  # Store time as string
     top_visitor_regions = mapped_column(JSON)
     most_used_tool = mapped_column(String)
@@ -121,8 +119,6 @@ if not ABUSEIPDB_API_KEY:
 def get_user_ip_info():
     try:
         response = requests.get("http://ip-api.com/json/")
-        print(response.status_code)  # Add this line to check the status code
-        print(response.text)  # Add this line to inspect the response content
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
@@ -670,13 +666,40 @@ def get_most_used_tool():
         return None  # Or handle the error as needed
 
 
-def display_results(results):  # Updated display function
-    """Displays results in a table format using rich."""
-    if "error" in results:  # Handle errors gracefully
-        console.print(f"[red]Error: {results['error']}[/red]")
-        return
+# --- Visitor Tracking Function ---
+def track_visitor(ip_address, region):
+    """Tracks a visitor in the database."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        with Session() as session:
+            visitor = (
+                session.query(Visitor)
+                .filter_by(ip_address=ip_address, visit_date=today)
+                .first()
+            )
+            if not visitor:
+                visitor = Visitor(ip_address=ip_address, visit_date=today, region=region)
+                session.add(visitor)
+            session.commit()
+    except Exception as e:
+        logger.error(f"Error tracking visitor: {e}")
 
-    table = Table(title="Results")
-    for key, value in results.items():
-        table.add_row(key, str(value))
-    console.print(table)
+
+# --- Page View Tracking Function ---
+def track_page_view():
+    """Tracks a page view in the database."""
+    today = datetime.now().strftime("%Y-%m-%d")  # Format the date as a string
+    try:
+        with Session() as session:
+            page_view = session.query(PageView).filter_by(date=today).first()
+            if page_view:
+                page_view.count += 1
+            else:
+                page_view = PageView(date=today, count=1)
+                session.add(page_view)
+            session.commit()
+    except Exception as e:
+        logger.error(f"Error tracking page view: {e}")
+
+
+
