@@ -133,19 +133,24 @@ st.header("🔐 IP and Email Security Tool")
 # --- Helper Function for Display ---
 def display_results(results):
     """Displays results in a table format using Streamlit."""
-    if not results:
-        st.warning("No results to display.")
-        return
-
-    if "error" in results:  # Handle errors gracefully
+    if "error" in results:
         st.error(f"Error: {results['error']}")
         return
 
+    # Convert all list values to strings
+    for key, value in results.items():
+        if isinstance(value, list):
+            results[key] = ', '.join(map(str, value))
+
+    # Create DataFrame
+    results_df = pd.DataFrame(list(results.items()), columns=['Attribute', 'Value'])
+    st.table(results_df.set_index('Attribute'))
+
     if isinstance(results, dict):
-        results_df = pd.DataFrame(results.items(), columns=["Attribute", "Details"])
+        pd.DataFrame(results.items(), columns=["Attribute", "Details"])
     elif isinstance(results, list):
         if all(isinstance(item, dict) for item in results):
-            results_df = pd.DataFrame(results)
+            pd.DataFrame(results)
         else:
             st.error("List items are not dictionaries.")
             return
@@ -153,7 +158,6 @@ def display_results(results):
         st.error("Unsupported results format.")
         return
 
-    st.table(results_df)
 
 
 # --- Tools ---
@@ -413,7 +417,7 @@ elif tool == "📞 Phone Number Lookup":
     """
     )
 
-    phone_number = st.text_input("Enter phone number")
+    phone_number = st.text_input("Enter phone number", placeholder="e.g., +1234567890")
     if st.button("🔍 Lookup"):
         with st.spinner("Looking up phone number..."):
             phone_info = phone_number_lookup(phone_number)
@@ -464,7 +468,7 @@ elif tool == "🔍 Host Name to IP":
     """
     )
 
-    host_name = st.text_input("Enter host name")
+    host_name = st.text_input("Enter host name", placeholder="e.g., www.example.com")
     if st.button("🔍 Lookup"):
         with st.spinner("Looking up host name..."):
             try:
@@ -561,7 +565,10 @@ elif tool == "✅ Email Validation":
         if "error" in email_validation_result:
             st.error(email_validation_result["error"])
         else:
-            display_results(email_validation_result)
+            st.metric(
+                label="Validation Status",
+                value="Valid" if email_validation_result["valid"] else "Invalid",
+            )
 
 elif tool == "🔎 MAC Address Lookup":
     st.subheader("🔎 MAC Address Lookup")
@@ -616,7 +623,7 @@ elif tool == "🔏 SSL Certificate Check":
     """
     )
 
-    domain_name = st.text_input("Enter domain name for SSL certificate check")
+    domain_name = st.text_input("Enter domain name for SSL certificate check", placeholder="e.g., google.com")
     if st.button("🔍 Check"):
         with st.spinner("Checking SSL certificate..."):
             ssl_certificate_results = ssl_certificate_check(domain_name)
@@ -643,7 +650,7 @@ elif tool == "🌐 DNS Lookup":
     """
     )
 
-    domain_name_dns = st.text_input("Enter domain name for DNS lookup")
+    domain_name_dns = st.text_input("Enter domain name for DNS lookup", placeholder="e.g., google.com")
     if st.button("🔍 Lookup"):
         with st.spinner("Looking up DNS..."):
             dns_results = dns_lookup(domain_name_dns)
@@ -674,7 +681,7 @@ elif tool == "🔍 WHOIS Lookup":
     """
     )
 
-    domain_name_whois = st.text_input("Enter domain name for WHOIS lookup")
+    domain_name_whois = st.text_input("Enter domain name for WHOIS lookup", placeholder="e.g., google.com")
     if st.button("🔍 Lookup"):
         with st.spinner("Looking up WHOIS..."):
             whois_results = whois_lookup(domain_name_whois)
@@ -702,7 +709,7 @@ elif tool == "🛡️ Malware URL Check":
     """
     )
 
-    url = st.text_input("Enter URL for malware check")
+    url = st.text_input("Enter URL for malware check", placeholder="e.g., https://example.com")
     if st.button("🔍 Check"):
         with st.spinner("Checking malware URL..."):
             malware_results = malware_url_check(url)
