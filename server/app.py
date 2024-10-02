@@ -66,8 +66,8 @@ with st.spinner("Loading app statistics..."):
 
 st.title("CyberGuard")
 
-col1, col2, col3, col4, col5 = st.columns(
-    5
+col1, col2, col3, col4, col5, col6 = st.columns(
+    6
 )  # Create columns to display app stats neatly
 
 col1.metric("👥 Daily Visitors", app_stats.get("Daily Visitors", "N/A"))
@@ -75,6 +75,7 @@ col2.metric("📅 Monthly Pageviews", app_stats.get("Monthly Pageviews", "N/A"))
 col3.metric("📈 Weekly Pageviews", app_stats.get("Weekly Pageviews", "N/A"))
 col4.metric("⏱️ Average Time On Site", app_stats.get("Average Time On Site", "N/A"))
 col5.metric("🌍 Top Visiting Region", app_stats.get("Top Visiting Region", "N/A"))
+col6.metric("🔗 Crowd Favorite Tool", app_stats.get("Top Tool", "N/A"))
 
 user_ip_info = get_user_ip_info()
 
@@ -85,7 +86,11 @@ current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 st.sidebar.write(f"**Current Time:** {current_time}")
 
 if "error" not in user_ip_info:
-    st.sidebar.markdown(f"**IP:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip']}</span>", unsafe_allow_html=True)
+    if "ip" in user_ip_info:
+        st.sidebar.markdown(f"**IPv4:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip']}</span>", unsafe_allow_html=True)
+    if "ip_v6" in user_ip_info:
+        st.sidebar.markdown(f"**IPv6:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip_v6']}</span>", unsafe_allow_html=True)
+
     st.sidebar.write(
         f"**Location:** {user_ip_info['city']}, {user_ip_info['region']}, {user_ip_info['country']}"
     )
@@ -203,7 +208,10 @@ elif tool == "📧 Email Trace":
 
     **What you'll get:**
 
-    - A JSON representation of the email's path, showing the mail servers and timestamps involved in its delivery.
+    - **Received From:** The server that received the email.
+    - **Received By:** The server that sent the email.
+    - **Date:** The date and time of the email transmission.
+    
     """
     )
 
@@ -229,7 +237,12 @@ elif tool == "📧 Email Trace":
         if "error" in email_trace:
             st.error(email_trace["error"])
         else:
-            st.json(email_trace)
+            st.write("### Email Trace Results")
+            for trace in email_trace.get("trace", []):
+                st.write(f"**Received From:** {trace['received_from']}")
+                st.write(f"**Received By:** {trace['received_by']}")
+                st.write(f"**Date:** {trace['date']}")
+                st.markdown("---")
 
 elif tool == "🔒 Security Check":
     st.subheader("🔒 Security Check")

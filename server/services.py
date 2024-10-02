@@ -87,6 +87,17 @@ class AppStatistics(Base):
         )
 
 
+class ToolUsage(Base):
+    __tablename__ = 'tool_usage'
+    id = mapped_column(Integer, primary_key=True)
+    tool_name = mapped_column(String)
+    usage_count = mapped_column(Integer, default=0)  # Initialize to 0
+    last_used = mapped_column(sa.DateTime)
+
+    def __repr__(self):
+        return f"<ToolUsage(tool_name='{self.tool_name}', usage_count='{self.usage_count}', last_used='{self.last_used}')>"
+
+
 try:  # Wrap table creation in a try-except block for error handling
     Base.metadata.create_all(engine)
     logger.info("Database tables created/verified successfully!")
@@ -137,7 +148,7 @@ BLACKLISTS = fetch_blacklist()
 
 
 def ip_lookup(ip_address):
-    """Provides information about an IP address."""
+    """Provides information about an IP address (IPv4 or IPv6)."""
     try:
         ip = ipaddress.ip_address(ip_address)
         response = requests.get(f"http://ip-api.com/json/{ip}")
@@ -469,6 +480,7 @@ def app_statistics(days=1, use_cached=True):
         stats = get_or_create_app_stats(
             session, today
         )  # Ensure a stat record exists for today
+        most_used_tool = get_most_used_tool()  # Fetch the most used tool
 
         if use_cached and all(
                 [
@@ -476,6 +488,7 @@ def app_statistics(days=1, use_cached=True):
                     stats.monthly_pageviews,
                     stats.weekly_pageviews,
                     stats.average_time_on_site,
+                    stats.top_visitor_regions,
                 ]
         ):  # Ensure there are existing stats
             return {
@@ -483,10 +496,13 @@ def app_statistics(days=1, use_cached=True):
                 "Monthly Pageviews": stats.monthly_pageviews,
                 "Weekly Pageviews": stats.weekly_pageviews,
                 "Average Time On Site": stats.average_time_on_site,
+                "Most Used Tool": most_used_tool,  # Add most used tool to stats
             }
 
         # Update (if needed) and return
-        return update_statistics(session, days, today, stats)
+        updated_stats = update_statistics(session, days, today, stats)
+        updated_stats["Most Used Tool"] = most_used_tool  # Add most used tool to stats
+        return updated_stats
 
 
 def get_top_visitor_regions(limit=5):
@@ -515,6 +531,7 @@ def update_statistics(
     weekly_pageviews = get_weekly_pageviews() or 0
     average_time_on_site = calculate_avg_time_on_site() or "00:00:00"
     top_regions = get_top_visitor_regions(limit=5) or []
+    top_tool = get_most_used_tool()  # Fetch the most used tool
 
     # Update the existing AppStatistics object instead of creating a new one
     stats_obj.daily_visitors = daily_visitors
@@ -522,6 +539,7 @@ def update_statistics(
     stats_obj.weekly_pageviews = weekly_pageviews
     stats_obj.average_time_on_site = average_time_on_site
     stats_obj.top_visitor_regions = top_regions
+    stats_obj.most_used_tool = top_tool
 
     try:
         session.commit()  # Save changes
@@ -536,6 +554,8 @@ def update_statistics(
         "Weekly Pageviews": stats_obj.weekly_pageviews,
         "Average Time On Site": stats_obj.average_time_on_site,
         "Top Visitor Regions": top_regions,
+        "Most Used Tool": top_tool,
+
     }
 
 
@@ -606,6 +626,39 @@ def calculate_avg_time_on_site():
     except Exception as e:
         logger.error(f"Error calculating average time on site: {e}")
         return "00:00:00"
+
+
+def track_tool_usage(tool_name):
+    """Tracks tool usage in the database."""
+    try:
+        with Session() as session:
+            tool = session.query(ToolUsage).filter_by(tool_name=tool_name).first()
+            if tool:
+                tool.usage_count += 1
+                tool.last_used = datetime.now()  # Update last used timestamp
+            else:
+                tool = ToolUsage()  # Create new record for first use
+                session.add(tool)
+            session.commit()
+    except Exception as e:
+        logger.error(f"Error tracking tool usage: {e}")
+
+
+def get_most_used_tool():
+    """Retrieves the most used tool from the database."""
+    try:
+        with Session() as session:
+            most_used_tool = (session.query(ToolUsage)
+                              .order_by(ToolUsage.usage_count.desc(),
+                                        ToolUsage.last_used.desc())  # Order by count, then last used
+                              .first())
+            if most_used_tool:
+                return most_used_tool.tool_name
+            return None  # Or a suitable default like "N/A"
+
+    except Exception as e:  # Catch database errors
+        logger.error(f"Error fetching most used tool: {e}")
+        return None  # Or handle the error as needed
 
 
 def display_results(results):  # Updated display function
