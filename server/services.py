@@ -78,12 +78,14 @@ class AppStatistics(Base):
     total_sites_linking = mapped_column(Integer)
     average_time_on_site = mapped_column(String)  # Store time as string
     top_visitor_regions = mapped_column(JSON)
+    most_used_tool = mapped_column(String)
 
     def __repr__(self):
         return (
             f"<AppStatistics(date='{self.date}', daily_visitors='{self.daily_visitors}', "
             f"monthly_pageviews='{self.monthly_pageviews}', weekly_pageviews='{self.weekly_pageviews}', "
-            f"average_time_on_site='{self.average_time_on_site}', top_visitor_regions='{self.top_visitor_regions}')>"
+            f"average_time_on_site='{self.average_time_on_site}', top_visitor_regions='{self.top_visitor_regions}', "
+            f"most_used_tool='{self.most_used_tool}')>"
         )
 
 
@@ -202,7 +204,8 @@ def trace_email(email_header):
 
 def security_check(ip_address):
     """Checks if an IP address is on a blocklist."""
-    if ip_address in BLACKLISTS:
+    blacklists = fetch_blacklist()
+    if ip_address in blacklists:
         logger.warning("IP address %s found on a blacklist", ip_address)
         return {"blacklisted": True}
     else:
@@ -381,7 +384,13 @@ def url_scan(url):
 def whois_lookup(domain):
     try:
         w = whois.whois(domain)
-        return w
+        return {
+            "domain_name": w.domain_name,
+            "registrar": w.registrar,
+            "creation_date": w.creation_date,
+            "expiration_date": w.expiration_date,
+            "name_servers": w.name_servers,
+        }
     except Exception as e:
         return {"error": str(e)}
 
@@ -496,7 +505,8 @@ def app_statistics(days=1, use_cached=True):
                 "Monthly Pageviews": stats.monthly_pageviews,
                 "Weekly Pageviews": stats.weekly_pageviews,
                 "Average Time On Site": stats.average_time_on_site,
-                "Most Used Tool": most_used_tool,  # Add most used tool to stats
+                "Most Used Tool": stats.most_used_tool,  # Include most used tool
+                "Top Visitor Regions": stats.top_visitor_regions,
             }
 
         # Update (if needed) and return
@@ -522,9 +532,7 @@ def get_top_visitor_regions(limit=5):
         return []
 
 
-def update_statistics(
-        session, days, today, stats_obj
-):  # Added the stat object as an argument
+def update_statistics(session, days, today, stats_obj):
     start_date = today - timedelta(days=days)
     daily_visitors = get_daily_visitors(start_date, today) or 0
     monthly_pageviews = get_monthly_pageviews() or 0
@@ -546,16 +554,15 @@ def update_statistics(
     except Exception as e:
         session.rollback()
         logger.error(f"Error updating stats: {e}")
-        return {"error": f"Database error: {e}"}
+        return {"error": "Database error"}
 
-    return {  # Updated keys
+    return {
         "Daily Visitors": stats_obj.daily_visitors,
         "Monthly Pageviews": stats_obj.monthly_pageviews,
         "Weekly Pageviews": stats_obj.weekly_pageviews,
         "Average Time On Site": stats_obj.average_time_on_site,
-        "Top Visitor Regions": top_regions,
-        "Most Used Tool": top_tool,
-
+        "Top Visitor Regions": stats_obj.top_visitor_regions,
+        "Most Used Tool": stats_obj.most_used_tool,
     }
 
 

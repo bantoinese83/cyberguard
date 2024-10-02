@@ -79,7 +79,6 @@ col6.metric("🔗 Crowd Favorite Tool", app_stats.get("Top Tool", "N/A"))
 
 user_ip_info = get_user_ip_info()
 
-
 # Sidebar navigation
 st.sidebar.title("🔍 Navigation")
 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -87,9 +86,13 @@ st.sidebar.write(f"**Current Time:** {current_time}")
 
 if "error" not in user_ip_info:
     if "ip" in user_ip_info:
-        st.sidebar.markdown(f"**IPv4:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip']}</span>", unsafe_allow_html=True)
+        st.sidebar.markdown(
+            f"**IPv4:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip']}</span>",
+            unsafe_allow_html=True)
     if "ip_v6" in user_ip_info:
-        st.sidebar.markdown(f"**IPv6:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip_v6']}</span>", unsafe_allow_html=True)
+        st.sidebar.markdown(
+            f"**IPv6:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip_v6']}</span>",
+            unsafe_allow_html=True)
 
     st.sidebar.write(
         f"**Location:** {user_ip_info['city']}, {user_ip_info['region']}, {user_ip_info['country']}"
@@ -126,15 +129,32 @@ tool = st.sidebar.radio(
 
 st.header("🔐 IP and Email Security Tool")
 
+
 # --- Helper Function for Display ---
 def display_results(results):
     """Displays results in a table format using Streamlit."""
+    if not results:
+        st.warning("No results to display.")
+        return
+
     if "error" in results:  # Handle errors gracefully
         st.error(f"Error: {results['error']}")
         return
 
-    results_df = pd.DataFrame(results.items(), columns=["Key", "Value"])
+    if isinstance(results, dict):
+        results_df = pd.DataFrame(results.items(), columns=["Attribute", "Details"])
+    elif isinstance(results, list):
+        if all(isinstance(item, dict) for item in results):
+            results_df = pd.DataFrame(results)
+        else:
+            st.error("List items are not dictionaries.")
+            return
+    else:
+        st.error("Unsupported results format.")
+        return
+
     st.table(results_df)
+
 
 # --- Tools ---
 if tool == "🌐 IP Lookup":
@@ -270,7 +290,10 @@ elif tool == "🔒 Security Check":
         if "error" in security_status:
             st.error(security_status["error"])
         else:
-            st.json(security_status)
+            st.metric(
+                label="Blacklisted",
+                value="Yes" if security_status["blacklisted"] else "No",
+            )
 
 elif tool == "📶 Internet Speed Test":
     st.subheader("📶 Internet Speed Test")
@@ -706,8 +729,8 @@ elif tool == "📊 Website Statistics":
     - **Global Rank:** The global rank of the domain.
     - **Data Points Charged:** The number of data points charged for the request.
 
-    **Note:** The free version of the SimilarWeb API has limited data. You may see 'N/A' for the Global Rank if data is not available for the domain.
-    """
+    **Note:** The free version of the SimilarWeb API has limited data. You may see 'N/A' for the Global Rank if data 
+    is not available for the domain."""
     )
 
     domain_name_stats = st.text_input(
@@ -721,7 +744,6 @@ elif tool == "📊 Website Statistics":
             st.error(website_stats["error"])
         else:
             display_results(website_stats)
-
 
 # Footer
 st.sidebar.markdown("---")
