@@ -17,7 +17,6 @@ CyberGuard is a comprehensive cybersecurity toolkit built with Streamlit, provid
 * **Reverse DNS Lookup:** Find the hostname associated with an IP address.
 * **Email Validation:** Verify the format and domain validity of an email address.
 * **MAC Address Lookup:** Identify the vendor of a network device based on its MAC address.
-* **Port Scanning:** Scan a target IP address for open ports.
 * **SSL Certificate Check:** Examine the details of an SSL certificate for a given domain.
 * **DNS Lookup:** Perform DNS lookups for A records of a domain.
 * **WHOIS Lookup:** Retrieve WHOIS information for a domain, revealing registration details.

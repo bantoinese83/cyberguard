@@ -34,7 +34,7 @@ Base = declarative_base()
 
 
 class PageView(Base):
-    __tablename__ = 'page_views'
+    __tablename__ = "page_views"
 
     id = mapped_column(Integer, primary_key=True)
     date = mapped_column(String)  # Store date as string
@@ -45,7 +45,7 @@ class PageView(Base):
 
 
 class VisitSession(Base):
-    __tablename__ = 'visit_sessions'
+    __tablename__ = "visit_sessions"
 
     id = mapped_column(Integer, primary_key=True)
     start_time = mapped_column(String)  # Store time as string
@@ -56,7 +56,7 @@ class VisitSession(Base):
 
 
 class Visitor(Base):
-    __tablename__ = 'visitors'
+    __tablename__ = "visitors"
 
     id = mapped_column(Integer, primary_key=True)
     ip_address = mapped_column(String)
@@ -68,7 +68,7 @@ class Visitor(Base):
 
 
 class AppStatistics(Base):
-    __tablename__ = 'app_statistics'
+    __tablename__ = "app_statistics"
 
     id = mapped_column(Integer, primary_key=True)
     date = mapped_column(String)  # Store date as string
@@ -80,9 +80,11 @@ class AppStatistics(Base):
     top_visitor_regions = mapped_column(JSON)
 
     def __repr__(self):
-        return f"<AppStatistics(date='{self.date}', daily_visitors='{self.daily_visitors}', " \
-               f"monthly_pageviews='{self.monthly_pageviews}', weekly_pageviews='{self.weekly_pageviews}', " \
-               f"average_time_on_site='{self.average_time_on_site}', top_visitor_regions='{self.top_visitor_regions}')>"
+        return (
+            f"<AppStatistics(date='{self.date}', daily_visitors='{self.daily_visitors}', "
+            f"monthly_pageviews='{self.monthly_pageviews}', weekly_pageviews='{self.weekly_pageviews}', "
+            f"average_time_on_site='{self.average_time_on_site}', top_visitor_regions='{self.top_visitor_regions}')>"
+        )
 
 
 try:  # Wrap table creation in a try-except block for error handling
@@ -115,15 +117,12 @@ def get_user_ip_info():
 def fetch_blacklist():
     """Fetches the blacklist from AbuseIPDB."""
     url = "https://api.abuseipdb.com/api/v2/blacklist"
-    headers = {
-        'Key': ABUSEIPDB_API_KEY,
-        'Accept': 'application/json'
-    }
+    headers = {"Key": ABUSEIPDB_API_KEY, "Accept": "application/json"}
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         data = response.json()
-        return [entry['ipAddress'] for entry in data['data']]
+        return [entry["ipAddress"] for entry in data["data"]]
     except requests.HTTPError as http_err:
         logger.error("HTTP error occurred: %s", http_err)
     except requests.RequestException as req_err:
@@ -163,16 +162,21 @@ def trace_email(email_header):
     """Attempts to trace the origin of an email using headers."""
     try:
         # Extract 'Received' headers
-        received_headers = re.findall(r"Received: from (.+?) by (.+?); (.+?)(?=\nReceived:|\Z)", email_header,
-                                      re.IGNORECASE | re.DOTALL)
+        received_headers = re.findall(
+            r"Received: from (.+?) by (.+?); (.+?)(?=\nReceived:|\Z)",
+            email_header,
+            re.IGNORECASE | re.DOTALL,
+        )
         if received_headers:
             trace_info = []
             for received_from, received_by, date in received_headers:
-                trace_info.append({
-                    "received_from": received_from.strip(),
-                    "received_by": received_by.strip(),
-                    "date": date.strip()
-                })
+                trace_info.append(
+                    {
+                        "received_from": received_from.strip(),
+                        "received_by": received_by.strip(),
+                        "date": date.strip(),
+                    }
+                )
             return {"trace": trace_info}
         else:
             logger.warning("No 'Received' headers found in email header")
@@ -214,7 +218,7 @@ def speed_test():
         return {"error": f"Unexpected error: {err}"}
 
 
-def phone_number_lookup(phone_number: str, region: str = 'US'):
+def phone_number_lookup(phone_number: str, region: str = "US"):
     try:
         # Parse phone number
         parsed_number = phonenumbers.parse(phone_number, region)
@@ -224,14 +228,14 @@ def phone_number_lookup(phone_number: str, region: str = 'US'):
             return {"valid": False, "message": "Invalid phone number"}
 
         # Get the location and carrier information
-        location = geocoder.description_for_number(parsed_number, 'en')
-        phone_carrier = carrier.name_for_number(parsed_number, 'en')
+        location = geocoder.description_for_number(parsed_number, "en")
+        phone_carrier = carrier.name_for_number(parsed_number, "en")
 
         return {
             "valid": True,
             "phone_number": phone_number,
             "location": location,
-            "carrier": phone_carrier
+            "carrier": phone_carrier,
         }
 
     except phonenumbers.phonenumberutil.NumberParseException as e:
@@ -258,7 +262,7 @@ def proxy_check(ip_address):
         "Tor Test": False,
         "Loc Test": False,
         "Header Test": False,
-        "DNSBL Test": False
+        "DNSBL Test": False,
     }
 
     # rDNS Test
@@ -290,31 +294,31 @@ def proxy_check(ip_address):
     try:
         loc_response = requests.get(loc_url)
         loc_data = loc_response.json()
-        results["Loc Test"] = loc_data.get("country") == "US"  # Example: Check if the country is US
+        results["Loc Test"] = (
+                loc_data.get("country") == "US"
+        )  # Example: Check if the country is US
     except requests.RequestException:
         results["Loc Test"] = False
 
     # Header Test (Check for proxy headers using httpbin.org)
-    headers = {
-        "X-Forwarded-For": ip_address,
-        "X-Real-IP": ip_address
-    }
+    headers = {"X-Forwarded-For": ip_address, "X-Real-IP": ip_address}
     header_url = "https://httpbin.org/headers"
     try:
         header_response = requests.get(header_url, headers=headers)
-        results["Header Test"] = "X-Forwarded-For" in header_response.json().get("headers", {})
+        results["Header Test"] = "X-Forwarded-For" in header_response.json().get(
+            "headers", {}
+        )
     except requests.RequestException:
         results["Header Test"] = False
 
     # DNSBL Test (Check if IP is listed in DNSBL using abuseipdb.com)
     dnsbl_url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={ip_address}"
-    headers = {
-        'Key': os.getenv("ABUSEIPDB_API_KEY"),
-        'Accept': 'application/json'
-    }
+    headers = {"Key": os.getenv("ABUSEIPDB_API_KEY"), "Accept": "application/json"}
     try:
         dnsbl_response = requests.get(dnsbl_url, headers=headers)
-        results["DNSBL Test"] = dnsbl_response.json().get("data", {}).get("abuseConfidenceScore", 0) > 0
+        results["DNSBL Test"] = (
+                dnsbl_response.json().get("data", {}).get("abuseConfidenceScore", 0) > 0
+        )
     except requests.RequestException:
         results["DNSBL Test"] = False
 
@@ -332,32 +336,18 @@ def reverse_dns_lookup(ip_address):
         return {"error": f"Unexpected error: {e}"}
 
 
-def port_scan(ip_address, ports=None):
-    if ports is None:
-        ports = [80, 443, 22, 21, 25, 110, 143, 3306, 5432, 27017, 3389, 8080, 8443, 8888, 9090, 9200, 9300]
-    open_ports = []
-    for port in ports:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        result = sock.connect_ex((ip_address, port))
-        if result == 0:
-            open_ports.append(port)
-        sock.close()
-    return {"ip_address": ip_address, "open_ports": open_ports}
-
-
 def email_validation(email):
     # Basic regex check for email format
-    regex = r'^\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    regex = r"^\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
     if not re.match(regex, email):
         return {"valid": False, "message": "Invalid email format"}
 
     # Extract domain from email
-    domain = email.split('@')[1]
+    domain = email.split("@")[1]
 
     # Check if the domain has MX records
     try:
-        mx_records = dns.resolver.resolve(domain, 'MX')
+        mx_records = dns.resolver.resolve(domain, "MX")
         if mx_records:
             return {"valid": True, "message": "Valid email address"}
     except dns.resolver.NoAnswer:
@@ -396,10 +386,10 @@ def ssl_certificate_check(domain):
 def dns_lookup(domain):
     result = {}
     try:
-        answers = dns.resolver.resolve(domain, 'A')
-        result['A'] = [rdata.to_text() for rdata in answers]
+        answers = dns.resolver.resolve(domain, "A")
+        result["A"] = [rdata.to_text() for rdata in answers]
     except dns.resolver.NoAnswer:
-        result['A'] = []
+        result["A"] = []
     return result
 
 
@@ -444,11 +434,17 @@ def website_statistics(domain):
         return stats
 
     except requests.exceptions.HTTPError as http_err:
-        if http_err.response.status_code == 404:  # Handle 'Data not found' specifically.
-            return {"error": f"Domain '{domain}' not found or does not have a global rank."}
+        if (
+                http_err.response.status_code == 404
+        ):  # Handle 'Data not found' specifically.
+            return {
+                "error": f"Domain '{domain}' not found or does not have a global rank."
+            }
         return {"error": f"HTTP error occurred: {http_err}"}  # More generic HTTP errors
     except requests.exceptions.RequestException as e:
-        return {"error": f"Error fetching website statistics: {e}"}  # Catch other request errors
+        return {
+            "error": f"Error fetching website statistics: {e}"
+        }  # Catch other request errors
     except KeyError as e:
         return {"error": f"Unexpected response format: Missing key {e}"}
     except Exception as e:  # Very general exception for anything else unexpected.
@@ -470,16 +466,23 @@ def app_statistics(days=1, use_cached=True):
     """Retrieves app usage statistics."""
     today = datetime.now().date()
     with Session() as session:
-        stats = get_or_create_app_stats(session, today)  # Ensure a stat record exists for today
+        stats = get_or_create_app_stats(
+            session, today
+        )  # Ensure a stat record exists for today
 
-        if use_cached and all([stats.daily_visitors, stats.monthly_pageviews,
-                               stats.weekly_pageviews,
-                               stats.average_time_on_site]):  # Ensure there are existing stats
+        if use_cached and all(
+                [
+                    stats.daily_visitors,
+                    stats.monthly_pageviews,
+                    stats.weekly_pageviews,
+                    stats.average_time_on_site,
+                ]
+        ):  # Ensure there are existing stats
             return {
                 "Daily Visitors": stats.daily_visitors,
                 "Monthly Pageviews": stats.monthly_pageviews,
                 "Weekly Pageviews": stats.weekly_pageviews,
-                "Average Time On Site": stats.average_time_on_site
+                "Average Time On Site": stats.average_time_on_site,
             }
 
         # Update (if needed) and return
@@ -490,17 +493,22 @@ def get_top_visitor_regions(limit=5):
     """Gets the top visitor regions using SQLAlchemy."""
     try:
         with Session() as session:
-            top_regions = session.query(Visitor.region, func.count(Visitor.region).label('count')). \
-                group_by(Visitor.region). \
-                order_by(sa.desc('count')). \
-                limit(limit).all()
+            top_regions = (
+                session.query(Visitor.region, func.count(Visitor.region).label("count"))
+                .group_by(Visitor.region)
+                .order_by(sa.desc("count"))
+                .limit(limit)
+                .all()
+            )
             return [{"region": region, "count": count} for region, count in top_regions]
     except Exception as e:  # Keep general Exception for database errors.
         logger.error(f"Error fetching top visitor regions: {e}")
         return []
 
 
-def update_statistics(session, days, today, stats_obj):  # Added the stat object as an argument
+def update_statistics(
+        session, days, today, stats_obj
+):  # Added the stat object as an argument
     start_date = today - timedelta(days=days)
     daily_visitors = get_daily_visitors(start_date, today) or 0
     monthly_pageviews = get_monthly_pageviews() or 0
@@ -527,7 +535,7 @@ def update_statistics(session, days, today, stats_obj):  # Added the stat object
         "Monthly Pageviews": stats_obj.monthly_pageviews,
         "Weekly Pageviews": stats_obj.weekly_pageviews,
         "Average Time On Site": stats_obj.average_time_on_site,
-        "Top Visitor Regions": top_regions
+        "Top Visitor Regions": top_regions,
     }
 
 
@@ -535,10 +543,14 @@ def get_daily_visitors(start_date, end_date):
     try:
         with Session() as session:
             # Assuming Visitor.visit_date is a String, convert to Date for comparison
-            total_visitors = session.query(Visitor).filter(
-                cast(Visitor.visit_date, Date) >= start_date,  # Convert to Date
-                cast(Visitor.visit_date, Date) <= end_date  # Convert to Date
-            ).count()
+            total_visitors = (
+                session.query(Visitor)
+                .filter(
+                    cast(Visitor.visit_date, Date) >= start_date,  # Convert to Date
+                    cast(Visitor.visit_date, Date) <= end_date,  # Convert to Date
+                )
+                .count()
+            )
             return total_visitors
     except Exception as e:
         logger.error(f"Error fetching daily visitors: {e}")
@@ -550,9 +562,11 @@ def get_monthly_pageviews():
         with Session() as session:
             today = datetime.now()
             first_day_of_month = today.replace(day=1)
-            total_pageviews = session.query(func.sum(PageView.count)).filter(
-                cast(PageView.date, sa.DateTime) >= first_day_of_month
-            ).scalar()  # Use scalar() to get a single value
+            total_pageviews = (
+                session.query(func.sum(PageView.count))
+                .filter(cast(PageView.date, sa.DateTime) >= first_day_of_month)
+                .scalar()
+            )  # Use scalar() to get a single value
             return total_pageviews or 0  # Handle the case where no data is found
     except Exception as e:
         logger.error(f"Error fetching monthly pageviews: {e}")
@@ -564,9 +578,11 @@ def get_weekly_pageviews():
         with Session() as session:
             today = datetime.now()
             first_day_of_week = today - timedelta(days=today.weekday())
-            total_pageviews = session.query(func.sum(PageView.count)).filter(
-                cast(PageView.date, sa.DateTime) >= first_day_of_week
-            ).scalar()  # Use scalar() to get a single value
+            total_pageviews = (
+                session.query(func.sum(PageView.count))
+                .filter(cast(PageView.date, sa.DateTime) >= first_day_of_week)
+                .scalar()
+            )  # Use scalar() to get a single value
             return total_pageviews or 0  # Handle the case where no data is found
     except Exception as e:
         logger.error(f"Error fetching weekly pageviews: {e}")
@@ -579,7 +595,8 @@ def calculate_avg_time_on_site():
             # Example: Assuming you have a VisitSession model with start_time and end_time
             average_duration = session.query(
                 func.avg(
-                    cast(VisitSession.end_time, sa.DateTime) - cast(VisitSession.start_time, sa.DateTime)
+                    cast(VisitSession.end_time, sa.DateTime)
+                    - cast(VisitSession.start_time, sa.DateTime)
                 )
             ).scalar()
             if average_duration:

@@ -1,13 +1,29 @@
 import socket
+from datetime import datetime
 
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
 
-from services import ip_lookup, trace_email, security_check, speed_test, get_user_ip_info, phone_number_lookup, \
-    proxy_check, reverse_dns_lookup, port_scan, ssl_certificate_check, dns_lookup, whois_lookup, malware_url_check, \
-    mac_address_lookup, email_validation, website_statistics, app_statistics
+from services import (
+    ip_lookup,
+    trace_email,
+    security_check,
+    speed_test,
+    get_user_ip_info,
+    phone_number_lookup,
+    proxy_check,
+    reverse_dns_lookup,
+    ssl_certificate_check,
+    dns_lookup,
+    whois_lookup,
+    malware_url_check,
+    mac_address_lookup,
+    email_validation,
+    website_statistics,
+    app_statistics,
+)
 
 # Load breach data
 
@@ -15,7 +31,8 @@ from services import ip_lookup, trace_email, security_check, speed_test, get_use
 st.set_page_config(page_title="CyberGuard", layout="wide")
 
 # Custom CSS for better styling
-st.markdown("""
+st.markdown(
+    """
     <style>
     .main {
         background-color: #f0f2f6;
@@ -31,20 +48,27 @@ st.markdown("""
         color: #16a085;
     }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
 # Display logo and title
 st.sidebar.image("cyberguard_logo.png", width=100)
+
 # --- Get and display app statistics in the header ---
 with st.spinner("Loading app statistics..."):
     app_stats = app_statistics()  # Fetch the app statistics
     if "error" in app_stats:
-        app_stats = {}  # Use an empty dictionary if fetching stats fails to prevent displaying an error on every
+        app_stats = (
+            {}
+        )  # Use an empty dictionary if fetching stats fails to prevent displaying an error on every
         # page load
 
 st.title("CyberGuard")
 
-col1, col2, col3, col4, col5 = st.columns(5)  # Create columns to display app stats neatly
+col1, col2, col3, col4, col5 = st.columns(
+    5
+)  # Create columns to display app stats neatly
 
 col1.metric("👥 Daily Visitors", app_stats.get("Daily Visitors", "N/A"))
 col2.metric("📅 Monthly Pageviews", app_stats.get("Monthly Pageviews", "N/A"))
@@ -54,34 +78,64 @@ col5.metric("🌍 Top Visiting Region", app_stats.get("Top Visiting Region", "N/
 
 user_ip_info = get_user_ip_info()
 
+
 # Sidebar navigation
 st.sidebar.title("🔍 Navigation")
+current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+st.sidebar.write(f"**Current Time:** {current_time}")
+
 if "error" not in user_ip_info:
-    st.sidebar.write(f"**IP:** {user_ip_info['ip']}")
-    st.sidebar.write(f"**Location:** {user_ip_info['city']}, {user_ip_info['region']}, {user_ip_info['country']}")
+    st.sidebar.markdown(f"**IP:** <span style='background-color: red; padding: 2px 4px;'>{user_ip_info['ip']}</span>", unsafe_allow_html=True)
+    st.sidebar.write(
+        f"**Location:** {user_ip_info['city']}, {user_ip_info['region']}, {user_ip_info['country']}"
+    )
 
     # Display the location on a small map if latitude and longitude are available
     if "loc" in user_ip_info:
         lat, lon = map(float, user_ip_info["loc"].split(","))
-        location_df = pd.DataFrame({
-            'lat': [lat],
-            'lon': [lon]
-        })
+        location_df = pd.DataFrame({"lat": [lat], "lon": [lon]})
         st.sidebar.map(location_df, zoom=10)
 else:
     st.sidebar.write("Unable to fetch IP information")
 
-tool = st.sidebar.radio("Go to",
-                        ["🌐 IP Lookup", "📧 Email Trace", "🔒 Security Check", "📶 Internet Speed Test",
-                         "📞 Phone Number Lookup", "🔍 Host Name to IP", "🛡️ Proxy Check", "🔄 Reverse DNS Lookup",
-                         "✅ Email Validation", "🔎 MAC Address Lookup", "🔍 Port Scan", "🔏 SSL Certificate Check",
-                         "🌐 DNS Lookup", "🔍 WHOIS Lookup", "🛡️ Malware URL Check", "📊 Website Statistics"])
+tool = st.sidebar.radio(
+    "Go to",
+    [
+        "🌐 IP Lookup",
+        "📧 Email Trace",
+        "🔒 Security Check",
+        "📶 Internet Speed Test",
+        "📞 Phone Number Lookup",
+        "🔍 Host Name to IP",
+        "🛡️ Proxy Check",
+        "🔄 Reverse DNS Lookup",
+        "✅ Email Validation",
+        "🔎 MAC Address Lookup",
+        "🔏 SSL Certificate Check",
+        "🌐 DNS Lookup",
+        "🔍 WHOIS Lookup",
+        "🛡️ Malware URL Check",
+        "📊 Website Statistics",
+    ],
+)
 
 st.header("🔐 IP and Email Security Tool")
 
+# --- Helper Function for Display ---
+def display_results(results):
+    """Displays results in a table format using Streamlit."""
+    if "error" in results:  # Handle errors gracefully
+        st.error(f"Error: {results['error']}")
+        return
+
+    results_df = pd.DataFrame(results.items(), columns=["Key", "Value"])
+    st.table(results_df)
+
+# --- Tools ---
 if tool == "🌐 IP Lookup":
     st.subheader("IP Lookup 🔍")
-    st.write("""
+    st.write(
+        """
     This tool provides detailed information about an IP address, including its geolocation, ISP, and potential blacklist status.
 
     **How it works:**
@@ -110,7 +164,8 @@ if tool == "🌐 IP Lookup":
     - Searching "What is my IP address?" on Google will show your own public IP.
 
 
-    """)  # Using triple quotes for multiline string
+    """
+    )  # Using triple quotes for multiline string
 
     ip_address = st.text_input("Enter IP address")
     if st.button("🔍 Lookup"):
@@ -122,26 +177,22 @@ if tool == "🌐 IP Lookup":
         if "error" in ip_info:
             st.error(ip_info["error"])
         else:
-            # Combine all information into a single dictionary
             combined_info = {**ip_info, **blacklist_info, **speed_info}
-            # Convert the dictionary to a DataFrame for better display
-            combined_info_df = pd.DataFrame(combined_info.items(), columns=["Key", "Value"])
-            st.table(combined_info_df)
+            display_results(combined_info)
 
             # Display the location on a map if latitude and longitude are available
             if "lat" in ip_info and "lon" in ip_info:
-                location_df = pd.DataFrame({
-                    'lat': [float(ip_info['lat'])],
-                    'lon': [float(ip_info['lon'])]
-                })
+                location_df = pd.DataFrame(
+                    {"lat": [float(ip_info["lat"])], "lon": [float(ip_info["lon"])]}
+                )
                 st.map(location_df)
             else:
                 st.warning("Location data not available for this IP address.")
 
-
 elif tool == "📧 Email Trace":
     st.subheader("Email Trace ✉️")
-    st.write("""
+    st.write(
+        """
     Trace the route of an email using its headers. This can help identify the sender's location, mail servers involved, and potential spoofing or relaying.
 
     **How it works:**
@@ -153,21 +204,25 @@ elif tool == "📧 Email Trace":
     **What you'll get:**
 
     - A JSON representation of the email's path, showing the mail servers and timestamps involved in its delivery.
-    """)
+    """
+    )
 
-    email_header = st.text_area("Enter email header", placeholder="Received: from mac.com ([10.13.11.252])\n  by "
-                                                                  "ms031.mac.com (Sun Java System Messaging Server "
-                                                                  "6.2-8.04 (built Feb 28 2007)) with ESMTP id "
-                                                                  "<0JMI007ZN7PETGC0@ms031.mac.com> for "
-                                                                  "user@example.com; Thu, 09 Aug 2007 04:24:50 -0700 "
-                                                                  "(PDT)\nReceived: from mail.dsis.net (mail.dsis.net "
-                                                                  "[70.183.59.5])\n  by mac.com ("
-                                                                  "Xserve/smtpin22/MantshX 4.0) with ESMTP id "
-                                                                  "l79BOnNS000101\n  for <user@example.com>; Thu, "
-                                                                  "09 Aug 2007 04:24:49 -0700 (PDT)\nReceived: from ["
-                                                                  "192.168.2.77] (70.183.59.6) by mail.dsis.net with "
-                                                                  "ESMTP\n  (EIMS X 3.3.2) for <user@example.com>; "
-                                                                  "Thu, 09 Aug 2007 04:24:49 -0700")
+    email_header = st.text_area(
+        "Enter email header",
+        placeholder="Received: from mac.com ([10.13.11.252])\n  by "
+                    "ms031.mac.com (Sun Java System Messaging Server "
+                    "6.2-8.04 (built Feb 28 2007)) with ESMTP id "
+                    "<0JMI007ZN7PETGC0@ms031.mac.com> for "
+                    "user@example.com; Thu, 09 Aug 2007 04:24:50 -0700 "
+                    "(PDT)\nReceived: from mail.dsis.net (mail.dsis.net "
+                    "[70.183.59.5])\n  by mac.com ("
+                    "Xserve/smtpin22/MantshX 4.0) with ESMTP id "
+                    "l79BOnNS000101\n  for <user@example.com>; Thu, "
+                    "09 Aug 2007 04:24:49 -0700 (PDT)\nReceived: from ["
+                    "192.168.2.77] (70.183.59.6) by mail.dsis.net with "
+                    "ESMTP\n  (EIMS X 3.3.2) for <user@example.com>; "
+                    "Thu, 09 Aug 2007 04:24:49 -0700",
+    )
     if st.button("🔍 Trace"):
         with st.spinner("Tracing email..."):
             email_trace = trace_email(email_header)
@@ -178,7 +233,8 @@ elif tool == "📧 Email Trace":
 
 elif tool == "🔒 Security Check":
     st.subheader("🔒 Security Check")
-    st.write("""
+    st.write(
+        """
     This tool checks if an IP address is listed on known blocklists, helping identify potentially malicious actors.
 
     **How it works:**
@@ -191,7 +247,8 @@ elif tool == "🔒 Security Check":
 
     - **Blacklisted Status:** Indicates if the IP address is found on any known blocklists.
     - **Detailed Information:** Additional details about the IP address, if available.
-    """)
+    """
+    )
 
     ip_address_check = st.text_input("Enter IP address for security check")
     if st.button("🔍 Check"):
@@ -204,7 +261,8 @@ elif tool == "🔒 Security Check":
 
 elif tool == "📶 Internet Speed Test":
     st.subheader("📶 Internet Speed Test")
-    st.write("""
+    st.write(
+        """
     This tool measures your internet connection's download and upload speeds, along with ping times.
 
     **How it works:**
@@ -220,7 +278,8 @@ elif tool == "📶 Internet Speed Test":
     - **Ping:** The time it takes for a data packet to travel from your device to the server and back.
     - **Server Information:** Details about the server used for the speed test.
     - **Client Information:** Details about your device's connection.
-    """)
+    """
+    )
 
     if st.button("🏃‍♂️ Run Test"):
         with st.spinner("Running speed test..."):
@@ -232,61 +291,75 @@ elif tool == "📶 Internet Speed Test":
 
             # Display key metrics
             col1, col2, col3 = st.columns(3)
-            col1.metric(label="Download Speed", value=f"{speedtest_results['download'] / 1_000_000:.2f} Mbps")
-            col2.metric(label="Upload Speed", value=f"{speedtest_results['upload'] / 1_000_000:.2f} Mbps")
+            col1.metric(
+                label="Download Speed",
+                value=f"{speedtest_results['download'] / 1_000_000:.2f} Mbps",
+            )
+            col2.metric(
+                label="Upload Speed",
+                value=f"{speedtest_results['upload'] / 1_000_000:.2f} Mbps",
+            )
             col3.metric(label="Ping", value=f"{speedtest_results['ping']} ms")
 
             # Display server information
             st.write("### Server Information")
-            server_info = speedtest_results['server']
-            st.write(f"Server: {server_info['name']}, {server_info['country']} ({server_info['sponsor']})")
+            server_info = speedtest_results["server"]
+            st.write(
+                f"Server: {server_info['name']}, {server_info['country']} ({server_info['sponsor']})"
+            )
             st.write(f"Server Latency: {server_info['latency']} ms")
 
             # Display client information
             st.write("### Client Information")
-            client_info = speedtest_results['client']
+            client_info = speedtest_results["client"]
             st.write(f"Client IP: {client_info['ip']}")
             st.write(f"Client ISP: {client_info['isp']}")
             st.write(f"Client Country: {client_info['country']}")
             st.write(f"Client Location: {client_info['lat']}, {client_info['lon']}")
 
             # Create a gauge chart for download speed
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=speedtest_results['download'] / 1_000_000,
-                title={'text': "Download Speed (Mbps)"},
-                gauge={'axis': {'range': [None, 1000]}}
-            ))
+            fig = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=speedtest_results["download"] / 1_000_000,
+                    title={"text": "Download Speed (Mbps)"},
+                    gauge={"axis": {"range": [None, 1000]}},
+                )
+            )
             st.plotly_chart(fig)
 
             # Create a gauge chart for upload speed
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=speedtest_results['upload'] / 1_000_000,
-                title={'text': "Upload Speed (Mbps)"},
-                gauge={'axis': {'range': [None, 1000]}}
-            ))
+            fig = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=speedtest_results["upload"] / 1_000_000,
+                    title={"text": "Upload Speed (Mbps)"},
+                    gauge={"axis": {"range": [None, 1000]}},
+                )
+            )
             st.plotly_chart(fig)
 
             # Create a gauge chart for ping
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=speedtest_results['ping'],
-                title={'text': "Ping (ms)"},
-                gauge={'axis': {'range': [None, 100]}}
-            ))
+            fig = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=speedtest_results["ping"],
+                    title={"text": "Ping (ms)"},
+                    gauge={"axis": {"range": [None, 100]}},
+                )
+            )
             st.plotly_chart(fig)
 
             # Display server location on a map
-            server_location = pd.DataFrame({
-                'lat': [float(server_info['lat'])],
-                'lon': [float(server_info['lon'])]
-            })
+            server_location = pd.DataFrame(
+                {"lat": [float(server_info["lat"])], "lon": [float(server_info["lon"])]}
+            )
             st.map(server_location)
 
 elif tool == "📞 Phone Number Lookup":
     st.subheader("📞 Phone Number Lookup")
-    st.write("""
+    st.write(
+        """
     This tool provides location and carrier information for a given phone number.
 
     **How it works:**
@@ -301,7 +374,8 @@ elif tool == "📞 Phone Number Lookup":
     - Location: The geographical location associated with the phone number.
     - Carrier: The carrier information for the phone number.
     - Map: A map showing the location if available.
-    """)
+    """
+    )
 
     phone_number = st.text_input("Enter phone number")
     if st.button("🔍 Lookup"):
@@ -311,9 +385,7 @@ elif tool == "📞 Phone Number Lookup":
         if "error" in phone_info:
             st.error(phone_info["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            phone_info_df = pd.DataFrame(phone_info.items(), columns=["Key", "Value"])
-            st.table(phone_info_df)
+            display_results(phone_info)
 
             # Display the location on a map if location information is available
             if "location" in phone_info and phone_info["location"]:
@@ -327,13 +399,10 @@ elif tool == "📞 Phone Number Lookup":
                     geocode_response = requests.get(geocode_url)
                     geocode_response.raise_for_status()
                     geocode_data = geocode_response.json()
-                    if geocode_data and geocode_data['results']:
-                        lat = geocode_data['results'][0]['geometry']['lat']
-                        lon = geocode_data['results'][0]['geometry']['lng']
-                        location_df = pd.DataFrame({
-                            'lat': [lat],
-                            'lon': [lon]
-                        })
+                    if geocode_data and geocode_data["results"]:
+                        lat = geocode_data["results"][0]["geometry"]["lat"]
+                        lon = geocode_data["results"][0]["geometry"]["lng"]
+                        location_df = pd.DataFrame({"lat": [lat], "lon": [lon]})
                         st.map(location_df)
                     else:
                         st.warning("Geocoding service did not return any results.")
@@ -342,7 +411,8 @@ elif tool == "📞 Phone Number Lookup":
 
 elif tool == "🔍 Host Name to IP":
     st.subheader("🔍 Host Name to IP")
-    st.write("""
+    st.write(
+        """
     This tool converts a hostname (e.g., www.example.com) to its corresponding IP address.
 
     **How it works:**
@@ -355,7 +425,8 @@ elif tool == "🔍 Host Name to IP":
 
     - **Host Name:** The hostname you entered.
     - **IP Address:** The resolved IP address of the hostname.
-    """)
+    """
+    )
 
     host_name = st.text_input("Enter host name")
     if st.button("🔍 Lookup"):
@@ -363,15 +434,14 @@ elif tool == "🔍 Host Name to IP":
             try:
                 host_ip = socket.gethostbyname(host_name)
                 host_ip_info = {"host_name": host_name, "ip_address": host_ip}
-                # Convert the dictionary to a DataFrame for better display
-                host_ip_df = pd.DataFrame(host_ip_info.items(), columns=["Key", "Value"])
-                st.table(host_ip_df)
+                display_results(host_ip_info)
             except socket.gaierror as e:
                 st.error(f"Error looking up host name: {e}")
 
-elif tool == "🔐 Proxy Check":
-    st.subheader("🔐 Proxy Check")
-    st.write("""
+elif tool == "🛡️ Proxy Check":
+    st.subheader("🛡️ Proxy Check")
+    st.write(
+        """
     This tool checks if an IP address is associated with a proxy server.
 
     **How it works:**
@@ -389,7 +459,8 @@ elif tool == "🔐 Proxy Check":
     - **Loc Test:** Indicates if the IP location matches the expected location.
     - **Header Test:** Indicates if proxy headers were detected.
     - **DNSBL Test:** Indicates if the IP is listed in DNSBL.
-    """)
+    """
+    )
 
     ip_address_proxy = st.text_input("Enter IP address for proxy check")
     if st.button("🔍 Check"):
@@ -398,13 +469,12 @@ elif tool == "🔐 Proxy Check":
         if "error" in proxy_results:
             st.error(proxy_results["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            proxy_results_df = pd.DataFrame(proxy_results.items(), columns=["Key", "Value"])
-            st.table(proxy_results_df)
+            display_results(proxy_results)
 
-elif tool == "🔐 Reverse DNS Lookup":
-    st.subheader("🔐 Reverse DNS Lookup")
-    st.write("""
+elif tool == "🔄 Reverse DNS Lookup":
+    st.subheader("🔄 Reverse DNS Lookup")
+    st.write(
+        """
     This tool provides the hostname for a given IP address.
 
     **How it works:**
@@ -417,7 +487,8 @@ elif tool == "🔐 Reverse DNS Lookup":
 
     - **IP Address:** The IP address you entered.
     - **Hostname:** The resolved hostname of the IP address.
-    """)
+    """
+    )
 
     ip_address_reverse_dns = st.text_input("Enter IP address for reverse DNS lookup")
     if st.button("🔍 Lookup"):
@@ -426,13 +497,12 @@ elif tool == "🔐 Reverse DNS Lookup":
         if "error" in reverse_dns_results:
             st.error(reverse_dns_results["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            reverse_dns_results_df = pd.DataFrame(reverse_dns_results.items(), columns=["Key", "Value"])
-            st.table(reverse_dns_results_df)
+            display_results(reverse_dns_results)
 
-elif tool == "📧 Email Validation":
-    st.subheader("📧 Email Validation")
-    st.write("""
+elif tool == "✅ Email Validation":
+    st.subheader("✅ Email Validation")
+    st.write(
+        """
     This tool validates the format and domain of an email address.
 
     **How it works:**
@@ -445,7 +515,8 @@ elif tool == "📧 Email Validation":
 
     - **Validation Status:** Indicates if the email address is valid.
     - **Message:** Provides additional information about the validation result.
-    """)
+    """
+    )
 
     email = st.text_input("Enter email address")
     if st.button("🔍 Validate"):
@@ -454,13 +525,12 @@ elif tool == "📧 Email Validation":
         if "error" in email_validation_result:
             st.error(email_validation_result["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            email_validation_df = pd.DataFrame(email_validation_result.items(), columns=["Key", "Value"])
-            st.table(email_validation_df)
+            display_results(email_validation_result)
 
-elif tool == "🔍 MAC Address Lookup":
-    st.subheader("🔍 MAC Address Lookup")
-    st.write("""
+elif tool == "🔎 MAC Address Lookup":
+    st.subheader("🔎 MAC Address Lookup")
+    st.write(
+        """
     This tool provides information about a MAC address.
 
     **How it works:**
@@ -473,51 +543,25 @@ elif tool == "🔍 MAC Address Lookup":
 
     - **MAC Address:** The MAC address you entered.
     - **Vendor:** The vendor associated with the MAC address.
-    """)
+    """
+    )
 
-    mac_address = st.text_input("Enter MAC address", placeholder="e.g., 00:1A:2B:3C:4D:5E")
+    mac_address = st.text_input(
+        "Enter MAC address", placeholder="e.g., 00:1A:2B:3C:4D:5E"
+    )
     if st.button("🔍 Lookup"):
         with st.spinner("Looking up MAC address..."):
             mac_info = mac_address_lookup(mac_address)
         if "error" in mac_info:
             st.error(mac_info["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            mac_info_df = pd.DataFrame(mac_info.items(), columns=["Key", "Value"])
-            mac_info_df["Value"] = mac_info_df["Value"].astype(str)  # Ensure all values are strings
-            st.table(mac_info_df)
+            display_results(mac_info)
 
-elif tool == "🔐 Port Scan":
-    st.subheader("🔐 Port Scan")
-    st.write("""
-    This tool scans a given IP address for open ports.
 
-    **How it works:**
-
-    1. **Input:** Enter the IP address you want to scan in the text input field.
-    2. **Scan:** Click the "🔍 Scan" button. The tool will perform a port scan.
-    3. **Results:** The port scan results will be displayed in a table.
-
-    **What you'll get:**
-
-    - **IP Address:** The IP address you entered.
-    - **Open Ports:** A list of open ports on the IP address.
-    """)
-
-    ip_address_port_scan = st.text_input("Enter IP address for port scan")
-    if st.button("🔍 Scan"):
-        with st.spinner("Scanning ports..."):
-            port_scan_results = port_scan(ip_address_port_scan)
-        if "error" in port_scan_results:
-            st.error(port_scan_results["error"])
-        else:
-            # Convert the dictionary to a DataFrame for better display
-            port_scan_results_df = pd.DataFrame(port_scan_results.items(), columns=["Key", "Value"])
-            st.table(port_scan_results_df)
-
-elif tool == "🔐 SSL Certificate Check":
-    st.subheader("🔐 SSL Certificate Check")
-    st.write("""
+elif tool == "🔏 SSL Certificate Check":
+    st.subheader("🔏 SSL Certificate Check")
+    st.write(
+        """
     This tool checks the SSL certificate details for a given domain.
 
     **How it works:**
@@ -533,7 +577,8 @@ elif tool == "🔐 SSL Certificate Check":
     - **Valid From:** The start date of the certificate's validity.
     - **Valid To:** The end date of the certificate's validity.
     - **Serial Number:** The serial number of the certificate.
-    """)
+    """
+    )
 
     domain_name = st.text_input("Enter domain name for SSL certificate check")
     if st.button("🔍 Check"):
@@ -542,13 +587,12 @@ elif tool == "🔐 SSL Certificate Check":
         if "error" in ssl_certificate_results:
             st.error(ssl_certificate_results["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            ssl_certificate_results_df = pd.DataFrame(ssl_certificate_results.items(), columns=["Key", "Value"])
-            st.table(ssl_certificate_results_df)
+            display_results(ssl_certificate_results)
 
-elif tool == "🔐 DNS Lookup":
-    st.subheader("🔐 DNS Lookup")
-    st.write("""
+elif tool == "🌐 DNS Lookup":
+    st.subheader("🌐 DNS Lookup")
+    st.write(
+        """
     This tool performs DNS lookups for a given domain.
 
     **How it works:**
@@ -560,7 +604,8 @@ elif tool == "🔐 DNS Lookup":
     **What you'll get:**
 
     - **A Records:** The A records for the domain.
-    """)
+    """
+    )
 
     domain_name_dns = st.text_input("Enter domain name for DNS lookup")
     if st.button("🔍 Lookup"):
@@ -569,13 +614,12 @@ elif tool == "🔐 DNS Lookup":
         if "error" in dns_results:
             st.error(dns_results["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            dns_results_df = pd.DataFrame(dns_results.items(), columns=["Key", "Value"])
-            st.table(dns_results_df)
+            display_results(dns_results)
 
-elif tool == "🔐 WHOIS Lookup":
-    st.subheader("🔐 WHOIS Lookup")
-    st.write("""
+elif tool == "🔍 WHOIS Lookup":
+    st.subheader("🔍 WHOIS Lookup")
+    st.write(
+        """
     This tool retrieves WHOIS information for a given domain.
 
     **How it works:**
@@ -591,7 +635,8 @@ elif tool == "🔐 WHOIS Lookup":
     - **Creation Date:** The date the domain was created.
     - **Expiration Date:** The date the domain will expire.
     - **Name Servers:** The name servers associated with the domain.
-    """)
+    """
+    )
 
     domain_name_whois = st.text_input("Enter domain name for WHOIS lookup")
     if st.button("🔍 Lookup"):
@@ -600,14 +645,12 @@ elif tool == "🔐 WHOIS Lookup":
         if "error" in whois_results:
             st.error(whois_results["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            whois_results_df = pd.DataFrame(whois_results.items(), columns=["Key", "Value"])
-            whois_results_df["Value"] = whois_results_df["Value"].astype(str)  # Ensure all values are strings
-            st.table(whois_results_df)
+            display_results(whois_results)
 
-elif tool == "🔐 Malware URL Check":
-    st.subheader("🔐 Malware URL Check")
-    st.write("""
+elif tool == "🛡️ Malware URL Check":
+    st.subheader("🛡️ Malware URL Check")
+    st.write(
+        """
     This tool checks a given URL for potential malware.
 
     **How it works:**
@@ -620,7 +663,8 @@ elif tool == "🔐 Malware URL Check":
 
     - **URL:** The URL you entered.
     - **Malware Status:** The status of the URL regarding malware.
-    """)
+    """
+    )
 
     url = st.text_input("Enter URL for malware check")
     if st.button("🔍 Check"):
@@ -629,14 +673,13 @@ elif tool == "🔐 Malware URL Check":
         if "error" in malware_results:
             st.error(malware_results["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
-            malware_results_df = pd.DataFrame(malware_results.items(), columns=["Key", "Value"])
-            st.table(malware_results_df)
+            display_results(malware_results)
 
 
 elif tool == "📊 Website Statistics":
     st.subheader("📊 Website Statistics")
-    st.write("""
+    st.write(
+        """
     This tool retrieves website statistics for a given domain.
 
     **How it works:**
@@ -651,9 +694,12 @@ elif tool == "📊 Website Statistics":
     - **Data Points Charged:** The number of data points charged for the request.
 
     **Note:** The free version of the SimilarWeb API has limited data. You may see 'N/A' for the Global Rank if data is not available for the domain.
-    """)
+    """
+    )
 
-    domain_name_stats = st.text_input("Enter domain name for website statistics", placeholder="e.g., google.com")
+    domain_name_stats = st.text_input(
+        "Enter domain name for website statistics", placeholder="e.g., google.com"
+    )
     if st.button("🔍 Get Stats"):
         with st.spinner("Fetching website statistics..."):
             website_stats = website_statistics(domain_name_stats)
@@ -661,13 +707,8 @@ elif tool == "📊 Website Statistics":
         if "error" in website_stats:
             st.error(website_stats["error"])
         else:
-            website_stats_df = pd.DataFrame(website_stats.items(), columns=["Key", "Value"])
+            display_results(website_stats)
 
-            # Improved display logic
-            if website_stats.get("Global Rank") is None:  # Check for None explicitly
-                st.write(f"No global rank data found for '{domain_name_stats}'. This is common with the free API.")
-            else:
-                st.table(website_stats_df)
 
 # Footer
 st.sidebar.markdown("---")
@@ -675,6 +716,9 @@ st.sidebar.markdown("### CyberGuard - Your Cybersecurity Companion")
 st.sidebar.markdown("© 2024 CyberGuard. All rights reserved.")
 st.sidebar.markdown("🔗 [Privacy Policy](#)")
 st.sidebar.markdown("🔗 [Terms of Service](#)")
-st.sidebar.markdown("📧 Contact us: [support@cyberguard.com](mailto:support@cyberguard.com)")
 st.sidebar.markdown(
-    "Follow us on [Twitter](https://twitter.com/cyberguard) | [LinkedIn](https://linkedin.com/company/cyberguard)")
+    "📧 Contact us: [support@cyberguard.com](mailto:support@cyberguard.com)"
+)
+st.sidebar.markdown(
+    "Follow us on [Twitter](https://twitter.com/cyberguard) | [LinkedIn](https://linkedin.com/company/cyberguard)"
+)
