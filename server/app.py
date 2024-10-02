@@ -7,7 +7,7 @@ import streamlit as st
 
 from services import ip_lookup, trace_email, security_check, speed_test, get_user_ip_info, phone_number_lookup, \
     proxy_check, reverse_dns_lookup, port_scan, ssl_certificate_check, dns_lookup, whois_lookup, malware_url_check, \
-    mac_address_lookup, email_validation , website_statistics
+    mac_address_lookup, email_validation, website_statistics, app_statistics
 
 # Load breach data
 
@@ -35,8 +35,22 @@ st.markdown("""
 
 # Display logo and title
 st.sidebar.image("cyberguard_logo.png", width=100)
+# --- Get and display app statistics in the header ---
+with st.spinner("Loading app statistics..."):
+    app_stats = app_statistics()  # Fetch the app statistics
+    if "error" in app_stats:
+        app_stats = {}  # Use an empty dictionary if fetching stats fails to prevent displaying an error on every
+        # page load
 
 st.title("CyberGuard")
+
+col1, col2, col3, col4, col5 = st.columns(5)  # Create columns to display app stats neatly
+
+col1.metric("👥 Daily Visitors", app_stats.get("Daily Visitors", "N/A"))
+col2.metric("📅 Monthly Pageviews", app_stats.get("Monthly Pageviews", "N/A"))
+col3.metric("📈 Weekly Pageviews", app_stats.get("Weekly Pageviews", "N/A"))
+col4.metric("⏱️ Average Time On Site", app_stats.get("Average Time On Site", "N/A"))
+col5.metric("🌍 Top Visiting Region", app_stats.get("Top Visiting Region", "N/A"))
 
 user_ip_info = get_user_ip_info()
 
@@ -59,45 +73,44 @@ else:
 
 tool = st.sidebar.radio("Go to",
                         ["🌐 IP Lookup", "📧 Email Trace", "🔒 Security Check", "📶 Internet Speed Test",
-                         "📞 Phone Number Lookup", "🔍 Host Name to IP", "🔐 Proxy Check", "🔐 Reverse DNS Lookup",
-                         "📧 Email Validation", "🔍 MAC Address Lookup", "🔐 Port Scan", "🔐 SSL Certificate Check",
-                         "🔐 DNS Lookup", "🔐 WHOIS Lookup", "🔐 Malware URL Check", "📊 Website Statistics"])
+                         "📞 Phone Number Lookup", "🔍 Host Name to IP", "🛡️ Proxy Check", "🔄 Reverse DNS Lookup",
+                         "✅ Email Validation", "🔎 MAC Address Lookup", "🔍 Port Scan", "🔏 SSL Certificate Check",
+                         "🌐 DNS Lookup", "🔍 WHOIS Lookup", "🛡️ Malware URL Check", "📊 Website Statistics"])
+
 st.header("🔐 IP and Email Security Tool")
 
 if tool == "🌐 IP Lookup":
-    st.subheader("🌐 IP Lookup")
-    st.write("### Instructions")
-    st.write("1. Enter the IP address you want to look up in the text input field.")
-    st.write("2. Click the '🔍 Lookup' button.")
-    st.write("3. View the IP information in the table and map (if available).")
+    st.subheader("IP Lookup 🔍")
+    st.write("""
+    This tool provides detailed information about an IP address, including its geolocation, ISP, and potential blacklist status.
 
-    st.write("### How to Get Someone's IP Address")
-    st.write(
-        "If you don't know how to get someone's IP address, read: [11 Ways To Get Someone's IP Address]("
-        "https://whatismyipaddress.com/get-ip).")
-    st.write("If you want to get your own IP address, you can simply search 'What is my IP address?' on Google.")
+    **How it works:**
 
-    st.write("### What You Will Get with This Tool")
-    st.write("With this tool, you will get detailed information about the IP address, including:")
-    st.write("- 🌐 **IP Address**: The IP address you entered.")
-    st.write("- 📍 **City**: The city where the IP address is located.")
-    st.write("- 🏢 **Region**: The region where the IP address is located.")
-    st.write("- 🌍 **Country**: The country where the IP address is located.")
-    st.write("- 🏷️ **Postal Code**: The postal code of the IP address location.")
-    st.write("- 🌐 **Latitude and Longitude**: The coordinates of the IP address location.")
-    st.write("- 🕒 **Timezone**: The timezone of the IP address location.")
-    st.write("- 🏢 **Organization**: The organization that owns the IP address.")
-    st.write("- 🔢 **ASN (Autonomous System Number)**: The ASN associated with the IP address.")
-    st.write("- 🌐 **ISP (Internet Service Provider)**: The ISP associated with the IP address.")
-    st.write("- 🚫 **Blacklist Status**: Whether the IP address is blacklisted or not.")
-    st.write("- 📶 **Download Speed**: The download speed for the IP address (if available).")
-    st.write("- 📤 **Upload Speed**: The upload speed for the IP address (if available).")
-    st.write("- 🏓 **Ping**: The ping time for the IP address (if available).")
-    st.write("- 🌐 **Speed Test Server**: Details of the speed test server used (if available).")
-    st.write("- 🕒 **Timestamp**: The timestamp of the speed test (if available).")
-    st.write("- 📊 **Bytes Sent**: The number of bytes sent during the speed test (if available).")
-    st.write("- 📥 **Bytes Received**: The number of bytes received during the speed test (if available).")
-    st.write("- 🌐 **Client Info**: Information about the client performing the speed test (if available).")
+    1. **Input:** Enter the IP address you'd like to investigate.
+    2. **Lookup:** Click the "Lookup" button.  The tool will query various databases and services to gather information.
+    3. **Results:** The results will be displayed in a table and on a map (if location data is available).
+
+
+    **What you'll get:**
+
+    - IP Address
+    - City, Region, Country, Postal Code
+    - Latitude and Longitude (for mapping)
+    - Timezone
+    - Organization and ASN
+    - ISP (Internet Service Provider)
+    - Blacklist status (check against known malicious IP lists)
+
+
+    **How to find someone's IP address (if needed):**
+    There are several ways to find someone's IP address, but it's important to respect privacy and legal regulations. 
+    See these resources for information:
+
+    - [11 Ways To Get Someone's IP Address](https://whatismyipaddress.com/get-ip)
+    - Searching "What is my IP address?" on Google will show your own public IP.
+
+
+    """)  # Using triple quotes for multiline string
 
     ip_address = st.text_input("Enter IP address")
     if st.button("🔍 Lookup"):
@@ -125,20 +138,22 @@ if tool == "🌐 IP Lookup":
             else:
                 st.warning("Location data not available for this IP address.")
 
-    # Monetization: Subscription Model
-    st.sidebar.write("### Subscribe for Premium Features")
-    st.sidebar.write("Get access to detailed IP lookup information, including blacklist status and speed test results.")
-    if st.sidebar.button("Subscribe Now"):
-        st.sidebar.markdown("[Proceed to Checkout](https://example.com/checkout)", unsafe_allow_html=True)
 
 elif tool == "📧 Email Trace":
-    st.subheader("📧 Email Trace")
-    st.write("### Instructions")
-    st.write("1. Find the email header in your email client. [Learn how to find email headers]("
-             "https://mxtoolbox.com/Public/Content/EmailHeaders/).")
-    st.write("2. Paste the email header into the text area provided.")
-    st.write("3. Click the '🔍 Trace' button.")
-    st.write("4. View the trace information in JSON format.")
+    st.subheader("Email Trace ✉️")
+    st.write("""
+    Trace the route of an email using its headers. This can help identify the sender's location, mail servers involved, and potential spoofing or relaying.
+
+    **How it works:**
+
+    1. **Get email headers:** Retrieve the full headers from your email client. See instructions for your specific email provider. [Here's a general guide.](https://mxtoolbox.com/Public/Content/EmailHeaders/)
+    2. **Paste headers:** Paste the copied email headers into the text area below.
+    3. **Trace:** Click the "Trace" button. The tool will parse the headers and display the email's path.
+
+    **What you'll get:**
+
+    - A JSON representation of the email's path, showing the mail servers and timestamps involved in its delivery.
+    """)
 
     email_header = st.text_area("Enter email header", placeholder="Received: from mac.com ([10.13.11.252])\n  by "
                                                                   "ms031.mac.com (Sun Java System Messaging Server "
@@ -163,10 +178,20 @@ elif tool == "📧 Email Trace":
 
 elif tool == "🔒 Security Check":
     st.subheader("🔒 Security Check")
-    st.write("### Instructions")
-    st.write("1. Enter the IP address you want to check for security in the text input field.")
-    st.write("2. Click the '🔍 Check' button.")
-    st.write("3. View the security status in JSON format.")
+    st.write("""
+    This tool checks if an IP address is listed on known blocklists, helping identify potentially malicious actors.
+
+    **How it works:**
+
+    1. **Input:** Enter the IP address you want to check for security in the text input field.
+    2. **Check:** Click the "🔍 Check" button. The tool will query various blocklists and security databases.
+    3. **Results:** The results will be displayed in JSON format, showing whether the IP address is blacklisted or not.
+
+    **What you'll get:**
+
+    - **Blacklisted Status:** Indicates if the IP address is found on any known blocklists.
+    - **Detailed Information:** Additional details about the IP address, if available.
+    """)
 
     ip_address_check = st.text_input("Enter IP address for security check")
     if st.button("🔍 Check"):
@@ -179,10 +204,23 @@ elif tool == "🔒 Security Check":
 
 elif tool == "📶 Internet Speed Test":
     st.subheader("📶 Internet Speed Test")
-    st.write("### Instructions")
-    st.write("1. Click the '🏃‍♂️ Run Test' button to start the speed test.")
-    st.write("2. View the speed test results, including download speed, upload speed, and ping.")
-    st.write("3. View server and client information, gauge charts, and server location on a map.")
+    st.write("""
+    This tool measures your internet connection's download and upload speeds, along with ping times.
+
+    **How it works:**
+
+    1. **Run Test:** Click the "Run Test" button to start the speed test.
+    2. **Measure:** The tool will measure your internet connection's download and upload speeds.
+    3. **Results:** The results will be displayed in a user-friendly format.
+
+    **What you'll get:**
+
+    - **Download Speed:** The rate at which data is downloaded from the internet to your device.
+    - **Upload Speed:** The rate at which data is uploaded from your device to the internet.
+    - **Ping:** The time it takes for a data packet to travel from your device to the server and back.
+    - **Server Information:** Details about the server used for the speed test.
+    - **Client Information:** Details about your device's connection.
+    """)
 
     if st.button("🏃‍♂️ Run Test"):
         with st.spinner("Running speed test..."):
@@ -248,15 +286,28 @@ elif tool == "📶 Internet Speed Test":
 
 elif tool == "📞 Phone Number Lookup":
     st.subheader("📞 Phone Number Lookup")
-    st.write("### Instructions")
-    st.write("1. Enter the phone number you want to look up in the text input field.")
-    st.write("2. Click the '🔍 Lookup' button.")
-    st.write("3. View the phone number information in the table and map (if available).")
+    st.write("""
+    This tool provides location and carrier information for a given phone number.
+
+    **How it works:**
+
+    1. **Input:** Enter the phone number you want to look up in the text input field.
+    2. **Lookup:** Click the "🔍 Lookup" button. The tool will query various databases to gather information.
+    3. **Results:** The results will be displayed in a table and on a map (if location data is available).
+
+    **What you'll get:**
+
+    - Validation Status: Indicates if the phone number is valid.
+    - Location: The geographical location associated with the phone number.
+    - Carrier: The carrier information for the phone number.
+    - Map: A map showing the location if available.
+    """)
 
     phone_number = st.text_input("Enter phone number")
     if st.button("🔍 Lookup"):
         with st.spinner("Looking up phone number..."):
             phone_info = phone_number_lookup(phone_number)
+
         if "error" in phone_info:
             st.error(phone_info["error"])
         else:
@@ -291,10 +342,20 @@ elif tool == "📞 Phone Number Lookup":
 
 elif tool == "🔍 Host Name to IP":
     st.subheader("🔍 Host Name to IP")
-    st.write("### Instructions")
-    st.write("1. Enter the host name you want to look up in the text input field.")
-    st.write("2. Click the '🔍 Lookup' button.")
-    st.write("3. View the IP address information in the table.")
+    st.write("""
+    This tool converts a hostname (e.g., www.example.com) to its corresponding IP address.
+
+    **How it works:**
+
+    1. **Input:** Enter the host name you want to look up in the text input field.
+    2. **Lookup:** Click the "🔍 Lookup" button. The tool will resolve the hostname to its IP address.
+    3. **Results:** The IP address information will be displayed in a table.
+
+    **What you'll get:**
+
+    - **Host Name:** The hostname you entered.
+    - **IP Address:** The resolved IP address of the hostname.
+    """)
 
     host_name = st.text_input("Enter host name")
     if st.button("🔍 Lookup"):
@@ -310,10 +371,25 @@ elif tool == "🔍 Host Name to IP":
 
 elif tool == "🔐 Proxy Check":
     st.subheader("🔐 Proxy Check")
-    st.write("### Instructions")
-    st.write("1. Enter the IP address you want to check for proxy in the text input field.")
-    st.write("2. Click the '🔍 Check' button.")
-    st.write("3. View the proxy check results in the table.")
+    st.write("""
+    This tool checks if an IP address is associated with a proxy server.
+
+    **How it works:**
+
+    1. **Input:** Enter the IP address you want to check for proxy in the text input field.
+    2. **Check:** Click the "🔍 Check" button. The tool will perform various tests to determine if the IP address is a proxy.
+    3. **Results:** The proxy check results will be displayed in a table.
+
+    **What you'll get:**
+
+    - **IP:** The IP address you entered.
+    - **rDNS:** Indicates if reverse DNS lookup was successful.
+    - **WIMIA Test:** Indicates if the IP is in a known proxy list.
+    - **Tor Test:** Indicates if the IP is a known Tor exit node.
+    - **Loc Test:** Indicates if the IP location matches the expected location.
+    - **Header Test:** Indicates if proxy headers were detected.
+    - **DNSBL Test:** Indicates if the IP is listed in DNSBL.
+    """)
 
     ip_address_proxy = st.text_input("Enter IP address for proxy check")
     if st.button("🔍 Check"):
@@ -328,10 +404,20 @@ elif tool == "🔐 Proxy Check":
 
 elif tool == "🔐 Reverse DNS Lookup":
     st.subheader("🔐 Reverse DNS Lookup")
-    st.write("### Instructions")
-    st.write("1. Enter the IP address you want to look up in the text input field.")
-    st.write("2. Click the '🔍 Lookup' button.")
-    st.write("3. View the reverse DNS lookup results in the table.")
+    st.write("""
+    This tool provides the hostname for a given IP address.
+
+    **How it works:**
+
+    1. **Input:** Enter the IP address you want to look up in the text input field.
+    2. **Lookup:** Click the "🔍 Lookup" button. The tool will perform a reverse DNS lookup.
+    3. **Results:** The reverse DNS lookup results will be displayed in a table.
+
+    **What you'll get:**
+
+    - **IP Address:** The IP address you entered.
+    - **Hostname:** The resolved hostname of the IP address.
+    """)
 
     ip_address_reverse_dns = st.text_input("Enter IP address for reverse DNS lookup")
     if st.button("🔍 Lookup"):
@@ -346,10 +432,20 @@ elif tool == "🔐 Reverse DNS Lookup":
 
 elif tool == "📧 Email Validation":
     st.subheader("📧 Email Validation")
-    st.write("### Instructions")
-    st.write("1. Enter the email address you want to validate in the text input field.")
-    st.write("2. Click the '🔍 Validate' button.")
-    st.write("3. View the validation results in the table.")
+    st.write("""
+    This tool validates the format and domain of an email address.
+
+    **How it works:**
+
+    1. **Input:** Enter the email address you want to validate in the text input field.
+    2. **Validate:** Click the "🔍 Validate" button. The tool will check the email format and domain validity.
+    3. **Results:** The validation results will be displayed in a table.
+
+    **What you'll get:**
+
+    - **Validation Status:** Indicates if the email address is valid.
+    - **Message:** Provides additional information about the validation result.
+    """)
 
     email = st.text_input("Enter email address")
     if st.button("🔍 Validate"):
@@ -364,10 +460,20 @@ elif tool == "📧 Email Validation":
 
 elif tool == "🔍 MAC Address Lookup":
     st.subheader("🔍 MAC Address Lookup")
-    st.write("### Instructions")
-    st.write("1. Enter the MAC address you want to look up in the text input field.")
-    st.write("2. Click the '🔍 Lookup' button.")
-    st.write("3. View the MAC address information in the table.")
+    st.write("""
+    This tool provides information about a MAC address.
+
+    **How it works:**
+
+    1. **Input:** Enter the MAC address you want to look up in the text input field.
+    2. **Lookup:** Click the "🔍 Lookup" button. The tool will fetch information about the MAC address.
+    3. **Results:** The MAC address information will be displayed in a table.
+
+    **What you'll get:**
+
+    - **MAC Address:** The MAC address you entered.
+    - **Vendor:** The vendor associated with the MAC address.
+    """)
 
     mac_address = st.text_input("Enter MAC address", placeholder="e.g., 00:1A:2B:3C:4D:5E")
     if st.button("🔍 Lookup"):
@@ -383,10 +489,20 @@ elif tool == "🔍 MAC Address Lookup":
 
 elif tool == "🔐 Port Scan":
     st.subheader("🔐 Port Scan")
-    st.write("### Instructions")
-    st.write("1. Enter the IP address you want to scan in the text input field.")
-    st.write("2. Click the '🔍 Scan' button.")
-    st.write("3. View the port scan results in the table.")
+    st.write("""
+    This tool scans a given IP address for open ports.
+
+    **How it works:**
+
+    1. **Input:** Enter the IP address you want to scan in the text input field.
+    2. **Scan:** Click the "🔍 Scan" button. The tool will perform a port scan.
+    3. **Results:** The port scan results will be displayed in a table.
+
+    **What you'll get:**
+
+    - **IP Address:** The IP address you entered.
+    - **Open Ports:** A list of open ports on the IP address.
+    """)
 
     ip_address_port_scan = st.text_input("Enter IP address for port scan")
     if st.button("🔍 Scan"):
@@ -401,10 +517,23 @@ elif tool == "🔐 Port Scan":
 
 elif tool == "🔐 SSL Certificate Check":
     st.subheader("🔐 SSL Certificate Check")
-    st.write("### Instructions")
-    st.write("1. Enter the domain name you want to check for SSL certificate in the text input field.")
-    st.write("2. Click the '🔍 Check' button.")
-    st.write("3. View the SSL certificate details in the table.")
+    st.write("""
+    This tool checks the SSL certificate details for a given domain.
+
+    **How it works:**
+
+    1. **Input:** Enter the domain name you want to check for SSL certificate in the text input field.
+    2. **Check:** Click the "🔍 Check" button. The tool will fetch the SSL certificate details.
+    3. **Results:** The SSL certificate details will be displayed in a table.
+
+    **What you'll get:**
+
+    - **Issuer:** The issuer of the SSL certificate.
+    - **Subject:** The subject of the SSL certificate.
+    - **Valid From:** The start date of the certificate's validity.
+    - **Valid To:** The end date of the certificate's validity.
+    - **Serial Number:** The serial number of the certificate.
+    """)
 
     domain_name = st.text_input("Enter domain name for SSL certificate check")
     if st.button("🔍 Check"):
@@ -419,10 +548,19 @@ elif tool == "🔐 SSL Certificate Check":
 
 elif tool == "🔐 DNS Lookup":
     st.subheader("🔐 DNS Lookup")
-    st.write("### Instructions")
-    st.write("1. Enter the domain name you want to look up in the text input field.")
-    st.write("2. Click the '🔍 Lookup' button.")
-    st.write("3. View the DNS lookup results in the table.")
+    st.write("""
+    This tool performs DNS lookups for a given domain.
+
+    **How it works:**
+
+    1. **Input:** Enter the domain name you want to look up in the text input field.
+    2. **Lookup:** Click the "🔍 Lookup" button. The tool will fetch the DNS records.
+    3. **Results:** The DNS lookup results will be displayed in a table.
+
+    **What you'll get:**
+
+    - **A Records:** The A records for the domain.
+    """)
 
     domain_name_dns = st.text_input("Enter domain name for DNS lookup")
     if st.button("🔍 Lookup"):
@@ -437,10 +575,23 @@ elif tool == "🔐 DNS Lookup":
 
 elif tool == "🔐 WHOIS Lookup":
     st.subheader("🔐 WHOIS Lookup")
-    st.write("### Instructions")
-    st.write("1. Enter the domain name you want to look up in the text input field.")
-    st.write("2. Click the '🔍 Lookup' button.")
-    st.write("3. View the WHOIS lookup results in the table.")
+    st.write("""
+    This tool retrieves WHOIS information for a given domain.
+
+    **How it works:**
+
+    1. **Input:** Enter the domain name you want to look up in the text input field.
+    2. **Lookup:** Click the "🔍 Lookup" button. The tool will fetch the WHOIS records.
+    3. **Results:** The WHOIS lookup results will be displayed in a table.
+
+    **What you'll get:**
+
+    - **Domain Name:** The domain name you entered.
+    - **Registrar:** The registrar of the domain.
+    - **Creation Date:** The date the domain was created.
+    - **Expiration Date:** The date the domain will expire.
+    - **Name Servers:** The name servers associated with the domain.
+    """)
 
     domain_name_whois = st.text_input("Enter domain name for WHOIS lookup")
     if st.button("🔍 Lookup"):
@@ -456,10 +607,20 @@ elif tool == "🔐 WHOIS Lookup":
 
 elif tool == "🔐 Malware URL Check":
     st.subheader("🔐 Malware URL Check")
-    st.write("### Instructions")
-    st.write("1. Enter the URL you want to check for malware in the text input field.")
-    st.write("2. Click the '🔍 Check' button.")
-    st.write("3. View the malware check results in the table.")
+    st.write("""
+    This tool checks a given URL for potential malware.
+
+    **How it works:**
+
+    1. **Input:** Enter the URL you want to check for malware in the text input field.
+    2. **Check:** Click the "🔍 Check" button. The tool will perform a malware check.
+    3. **Results:** The malware check results will be displayed in a table.
+
+    **What you'll get:**
+
+    - **URL:** The URL you entered.
+    - **Malware Status:** The status of the URL regarding malware.
+    """)
 
     url = st.text_input("Enter URL for malware check")
     if st.button("🔍 Check"):
@@ -475,28 +636,45 @@ elif tool == "🔐 Malware URL Check":
 
 elif tool == "📊 Website Statistics":
     st.subheader("📊 Website Statistics")
-    st.write("### Instructions")
-    st.write("1. Enter the domain name you want to get statistics for in the text input field.")
-    st.write("2. Click the '🔍 Get Stats' button.")
-    st.write("3. View the website statistics in the table.")
+    st.write("""
+    This tool retrieves website statistics for a given domain.
 
-    # Add example placeholder text
-    domain_name_stats = st.text_input("Enter domain name for website statistics", placeholder="e.g., example.com")
+    **How it works:**
+
+    1. **Input:** Enter the domain name you want to get statistics for in the text input field.
+    2. **Get Stats:** Click the "🔍 Get Stats" button. The tool will fetch the website statistics.
+    3. **Results:** The website statistics will be displayed in a table.
+
+    **What you'll get:**
+
+    - **Global Rank:** The global rank of the domain.
+    - **Data Points Charged:** The number of data points charged for the request.
+
+    **Note:** The free version of the SimilarWeb API has limited data. You may see 'N/A' for the Global Rank if data is not available for the domain.
+    """)
+
+    domain_name_stats = st.text_input("Enter domain name for website statistics", placeholder="e.g., google.com")
     if st.button("🔍 Get Stats"):
         with st.spinner("Fetching website statistics..."):
             website_stats = website_statistics(domain_name_stats)
+
         if "error" in website_stats:
             st.error(website_stats["error"])
         else:
-            # Convert the dictionary to a DataFrame for better display
             website_stats_df = pd.DataFrame(website_stats.items(), columns=["Key", "Value"])
-            st.table(website_stats_df)
+
+            # Improved display logic
+            if website_stats.get("Global Rank") is None:  # Check for None explicitly
+                st.write(f"No global rank data found for '{domain_name_stats}'. This is common with the free API.")
+            else:
+                st.table(website_stats_df)
 
 # Footer
 st.sidebar.markdown("---")
-st.sidebar.write("Made with ❤️ by [CyberGuard](basedev83@gmail.com)")
-
-
-
-
-
+st.sidebar.markdown("### CyberGuard - Your Cybersecurity Companion")
+st.sidebar.markdown("© 2024 CyberGuard. All rights reserved.")
+st.sidebar.markdown("🔗 [Privacy Policy](#)")
+st.sidebar.markdown("🔗 [Terms of Service](#)")
+st.sidebar.markdown("📧 Contact us: [support@cyberguard.com](mailto:support@cyberguard.com)")
+st.sidebar.markdown(
+    "Follow us on [Twitter](https://twitter.com/cyberguard) | [LinkedIn](https://linkedin.com/company/cyberguard)")

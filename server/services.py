@@ -4,17 +4,21 @@ import os
 import re
 import socket
 import ssl
+from datetime import datetime, timedelta
 
 import dns.resolver
 import phonenumbers
 import requests
 import speedtest
+import sqlalchemy as sa
 import whois
 from dotenv import load_dotenv
 from phonenumbers import geocoder, carrier
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.table import Table
+from sqlalchemy import Integer, String, create_engine, func, cast, Date, JSON
+from sqlalchemy.orm import declarative_base, sessionmaker, mapped_column
 
 load_dotenv()
 
@@ -22,6 +26,73 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, handlers=[RichHandler()])
 logger = logging.getLogger(__name__)
 console = Console()
+
+# Database setup (replace with your database details)
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_engine(DATABASE_URL, echo=False)  # echo=True for debugging
+Base = declarative_base()
+
+
+class PageView(Base):
+    __tablename__ = 'page_views'
+
+    id = mapped_column(Integer, primary_key=True)
+    date = mapped_column(String)  # Store date as string
+    count = mapped_column(Integer)
+
+    def __repr__(self):
+        return f"<PageView(date='{self.date}', count='{self.count}')>"
+
+
+class VisitSession(Base):
+    __tablename__ = 'visit_sessions'
+
+    id = mapped_column(Integer, primary_key=True)
+    start_time = mapped_column(String)  # Store time as string
+    end_time = mapped_column(String)  # Store time as string
+
+    def __repr__(self):
+        return f"<VisitSession(start_time='{self.start_time}', end_time='{self.end_time}')>"
+
+
+class Visitor(Base):
+    __tablename__ = 'visitors'
+
+    id = mapped_column(Integer, primary_key=True)
+    ip_address = mapped_column(String)
+    visit_date = mapped_column(String)  # Store date as string
+    region = mapped_column(String)
+
+    def __repr__(self):
+        return f"<Visitor(ip_address='{self.ip_address}', visit_date='{self.visit_date}', region='{self.region}')>"
+
+
+class AppStatistics(Base):
+    __tablename__ = 'app_statistics'
+
+    id = mapped_column(Integer, primary_key=True)
+    date = mapped_column(String)  # Store date as string
+    daily_visitors = mapped_column(Integer)
+    monthly_pageviews = mapped_column(Integer)
+    weekly_pageviews = mapped_column(Integer)
+    total_sites_linking = mapped_column(Integer)
+    average_time_on_site = mapped_column(String)  # Store time as string
+    top_visitor_regions = mapped_column(JSON)
+
+    def __repr__(self):
+        return f"<AppStatistics(date='{self.date}', daily_visitors='{self.daily_visitors}', " \
+               f"monthly_pageviews='{self.monthly_pageviews}', weekly_pageviews='{self.weekly_pageviews}', " \
+               f"average_time_on_site='{self.average_time_on_site}', top_visitor_regions='{self.top_visitor_regions}')>"
+
+
+try:  # Wrap table creation in a try-except block for error handling
+    Base.metadata.create_all(engine)
+    logger.info("Database tables created/verified successfully!")
+except sa.exc.OperationalError as e:
+    logger.error(f"Database error: {e}")
+    exit(1)  # Exit the app if database connection fails.
+
+Session = sessionmaker(bind=engine)
 
 # Load API keys from environment variables
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY")
@@ -346,40 +417,178 @@ def mac_address_lookup(mac_address):
 
 
 def website_statistics(domain):
-    """Retrieves website statistics using similarweb.com."""
-    api_key = os.getenv("SIMILARWEB_API_KEY")  # Get your API key from similarweb.com
+    """Retrieves website statistics using Similarweb DigitalRank API (Free Version)."""
+    api_key = os.getenv("SIMILARWEB_API_KEY")
     if not api_key:
         return {"error": "SIMILARWEB_API_KEY not found in environment variables."}
 
-    headers = {
-        "Authorization": f"Bearer {api_key}"
-    }
-
-    # Ensure the domain is properly formatted
+    # SimilarWeb recommends removing "www." for consistent results.
     domain = domain.replace("www.", "")
 
     try:
-        response = requests.get(
-            f"https://api.similarweb.com/v1/website/{domain}/traffic-and-engagement/overview?api_key={api_key}",
-            headers=headers)
-        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+        url = f"https://api.similarweb.com/v1/similar-rank/{domain}/rank?api_key={api_key}"
+        response = requests.get(url)
+        response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
         data = response.json()
 
-        # Extract relevant information (customize as needed)
+        if "error" in data:
+            return {"error": data["error"]}
+
+        # Data points charged
+        data_points_charged = int(response.headers.get("sw-datapoint-charged", 0))
+
         stats = {
             "Global Rank": data.get("global_rank"),
-            "Country Rank": data.get("country_rank"),
-            "Total Visits": data.get("total_visits_last_month"),
-            "Bounce Rate": data.get("bounce_rate"),
-            "Average Visit Duration": data.get("average_visit_duration"),
-            "Pages per Visit": data.get("pages_per_visit"),
+            "Data Points Charged": data_points_charged,  # Include data points used
         }
         return stats
 
+    except requests.exceptions.HTTPError as http_err:
+        if http_err.response.status_code == 404:  # Handle 'Data not found' specifically.
+            return {"error": f"Domain '{domain}' not found or does not have a global rank."}
+        return {"error": f"HTTP error occurred: {http_err}"}  # More generic HTTP errors
     except requests.exceptions.RequestException as e:
-        return {"error": f"Error fetching website statistics: {e}"}
+        return {"error": f"Error fetching website statistics: {e}"}  # Catch other request errors
     except KeyError as e:
         return {"error": f"Unexpected response format: Missing key {e}"}
+    except Exception as e:  # Very general exception for anything else unexpected.
+        return {"error": f"An unexpected error occurred: {e}"}
+
+
+def get_or_create_app_stats(session, today):
+    """Gets or creates app stats for today."""
+    date_str = today.strftime("%Y-%m-%d")
+    stats = session.query(AppStatistics).filter(AppStatistics.date == date_str).first()
+    if not stats:
+        stats = AppStatistics()
+        session.add(stats)
+        session.commit()
+    return stats
+
+
+def app_statistics(days=1, use_cached=True):
+    """Retrieves app usage statistics."""
+    today = datetime.now().date()
+    with Session() as session:
+        stats = get_or_create_app_stats(session, today)  # Ensure a stat record exists for today
+
+        if use_cached and all([stats.daily_visitors, stats.monthly_pageviews,
+                               stats.weekly_pageviews,
+                               stats.average_time_on_site]):  # Ensure there are existing stats
+            return {
+                "Daily Visitors": stats.daily_visitors,
+                "Monthly Pageviews": stats.monthly_pageviews,
+                "Weekly Pageviews": stats.weekly_pageviews,
+                "Average Time On Site": stats.average_time_on_site
+            }
+
+        # Update (if needed) and return
+        return update_statistics(session, days, today, stats)
+
+
+def get_top_visitor_regions(limit=5):
+    """Gets the top visitor regions using SQLAlchemy."""
+    try:
+        with Session() as session:
+            top_regions = session.query(Visitor.region, func.count(Visitor.region).label('count')). \
+                group_by(Visitor.region). \
+                order_by(sa.desc('count')). \
+                limit(limit).all()
+            return [{"region": region, "count": count} for region, count in top_regions]
+    except Exception as e:  # Keep general Exception for database errors.
+        logger.error(f"Error fetching top visitor regions: {e}")
+        return []
+
+
+def update_statistics(session, days, today, stats_obj):  # Added the stat object as an argument
+    start_date = today - timedelta(days=days)
+    daily_visitors = get_daily_visitors(start_date, today) or 0
+    monthly_pageviews = get_monthly_pageviews() or 0
+    weekly_pageviews = get_weekly_pageviews() or 0
+    average_time_on_site = calculate_avg_time_on_site() or "00:00:00"
+    top_regions = get_top_visitor_regions(limit=5) or []
+
+    # Update the existing AppStatistics object instead of creating a new one
+    stats_obj.daily_visitors = daily_visitors
+    stats_obj.monthly_pageviews = monthly_pageviews
+    stats_obj.weekly_pageviews = weekly_pageviews
+    stats_obj.average_time_on_site = average_time_on_site
+    stats_obj.top_visitor_regions = top_regions
+
+    try:
+        session.commit()  # Save changes
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error updating stats: {e}")
+        return {"error": f"Database error: {e}"}
+
+    return {  # Updated keys
+        "Daily Visitors": stats_obj.daily_visitors,
+        "Monthly Pageviews": stats_obj.monthly_pageviews,
+        "Weekly Pageviews": stats_obj.weekly_pageviews,
+        "Average Time On Site": stats_obj.average_time_on_site,
+        "Top Visitor Regions": top_regions
+    }
+
+
+def get_daily_visitors(start_date, end_date):
+    try:
+        with Session() as session:
+            # Assuming Visitor.visit_date is a String, convert to Date for comparison
+            total_visitors = session.query(Visitor).filter(
+                cast(Visitor.visit_date, Date) >= start_date,  # Convert to Date
+                cast(Visitor.visit_date, Date) <= end_date  # Convert to Date
+            ).count()
+            return total_visitors
+    except Exception as e:
+        logger.error(f"Error fetching daily visitors: {e}")
+        return 0  # Return 0 on error
+
+
+def get_monthly_pageviews():
+    try:
+        with Session() as session:
+            today = datetime.now()
+            first_day_of_month = today.replace(day=1)
+            total_pageviews = session.query(func.sum(PageView.count)).filter(
+                cast(PageView.date, sa.DateTime) >= first_day_of_month
+            ).scalar()  # Use scalar() to get a single value
+            return total_pageviews or 0  # Handle the case where no data is found
+    except Exception as e:
+        logger.error(f"Error fetching monthly pageviews: {e}")
+        return 0
+
+
+def get_weekly_pageviews():
+    try:
+        with Session() as session:
+            today = datetime.now()
+            first_day_of_week = today - timedelta(days=today.weekday())
+            total_pageviews = session.query(func.sum(PageView.count)).filter(
+                cast(PageView.date, sa.DateTime) >= first_day_of_week
+            ).scalar()  # Use scalar() to get a single value
+            return total_pageviews or 0  # Handle the case where no data is found
+    except Exception as e:
+        logger.error(f"Error fetching weekly pageviews: {e}")
+        return 0
+
+
+def calculate_avg_time_on_site():
+    try:
+        with Session() as session:
+            # Example: Assuming you have a VisitSession model with start_time and end_time
+            average_duration = session.query(
+                func.avg(
+                    cast(VisitSession.end_time, sa.DateTime) - cast(VisitSession.start_time, sa.DateTime)
+                )
+            ).scalar()
+            if average_duration:
+                return str(average_duration)  # Convert timedelta to string
+            return "00:00:00"
+
+    except Exception as e:
+        logger.error(f"Error calculating average time on site: {e}")
+        return "00:00:00"
 
 
 def display_results(results):  # Updated display function
