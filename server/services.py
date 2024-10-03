@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 # Database setup (replace with your database details)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://root:password@localhost:5432/cyberguard_db")
 engine = create_engine(DATABASE_URL, echo=False)  # echo=True for debugging
 Base = declarative_base()
 
