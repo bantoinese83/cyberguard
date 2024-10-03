@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 # Database setup (replace with your database details)
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data.db")
 engine = create_engine(DATABASE_URL, echo=False)  # echo=True for debugging
 Base = declarative_base()
 
